@@ -12,7 +12,7 @@ collection_users = database_name["users"]
 app = Flask(__name__)
 
 
-@app.route('/createaccout', methods=['GET', 'POST'])
+@app.route('/createaccount', methods=['GET', 'POST'])
 def create_account():
     if request.method == 'POST':
         username = request.form['username']
@@ -22,13 +22,15 @@ def create_account():
 
         if password != confirm_pw:
             flash("Password Error")
-            redirect('/register')
+            return redirect('/register')
         
         if collection_users.find_one({"username": username}):
             flash("User already exists")
+            return redirect('/register')
 
         if collection_users.find_one({"email": email}):
             flash("Email already used")
+            return redirect('/register')
 
         collection_users.insert_one({
             "username": username,
