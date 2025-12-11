@@ -22,15 +22,15 @@ def create_account():
 
         if password != confirm_pw:
             flash("Password Error")
-            return redirect('/register')
+            return redirect('/createaccount')
         
         if collection_users.find_one({"username": username}):
             flash("User already exists")
-            return redirect('/register')
+            return redirect('/createaccount')
 
         if collection_users.find_one({"email": email}):
             flash("Email already used")
-            return redirect('/register')
+            return redirect('/createaccount')
 
         collection_users.insert_one({
             "username": username,
