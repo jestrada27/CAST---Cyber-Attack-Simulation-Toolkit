@@ -14,6 +14,8 @@ collection_users = database_name["users"]
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRETKEY')
 
+#createaccount
+
 @app.route('/createaccount', methods=['GET', 'POST'])
 def create_account():
     if request.method == 'POST':
@@ -44,7 +46,7 @@ def create_account():
     
     return render_template('createaccount.html')
 
-
+#userlogin
     
 @app.route('/', methods=['GET', 'POST'])
 def user_login():
@@ -61,7 +63,32 @@ def user_login():
             flash("Incorrect username or password")
     
     return render_template('login.html')
-        
+
+#maindashboard
+
+@app.route('/main_dashboard')
+def main_dashboard():
+    # Only logged-in users can see this
+    if "user" not in session:
+        flash("Please log in to access the dashboard.", "error")
+        return redirect(url_for('user_login'))
+
+    username = session["user"]
+    # You can later add more data here (recent activity, etc.)
+    return render_template('main_dashboard.html', username=username)
+
+#logout
+
+@app.route('/logout')
+def logout():
+    session.pop("user", None)
+    flash("You have been logged out.", "success")
+    return redirect(url_for('user_login'))
+
+
+if __name__ == '__main__':
+    # debug=True for development only
+    app.run(debug=True)
 
 # username = input("Enter user: ")
 # password = input("Enter password: ")
