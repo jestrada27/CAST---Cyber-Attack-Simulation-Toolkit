@@ -68,13 +68,12 @@ def user_login():
 
 @app.route('/main_dashboard')
 def main_dashboard():
-    # Only logged-in users can see this
+
     if "user" not in session:
         flash("Please log in to access the dashboard.", "error")
         return redirect(url_for('user_login'))
 
     username = session["user"]
-    # You can later add more data here (recent activity, etc.)
     return render_template('main_dashboard.html', username=username)
 
 #logout
@@ -87,7 +86,6 @@ def logout():
 
 
 if __name__ == '__main__':
-    # debug=True for development only
     app.run(debug=True)
 
 # username = input("Enter user: ")
