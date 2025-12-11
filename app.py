@@ -1,8 +1,10 @@
 from flask import Flask, request, session, redirect, render_template, flash
 from pymongo import MongoClient
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-
-connection = "mongodb+srv://mail2noahf_db_user:3JilQ5uHptENec3a@castcluster.j40rgtw.mongodb.net/?appName=CASTCluster"
+connection = os.getenv('MONGODB_URI')
 
 dbclient = MongoClient(connection, tlsAllowInvalidCertificates=True)  
 
@@ -10,9 +12,9 @@ database_name = dbclient["CAST"]
 collection_users = database_name["users"]
 
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRETKEY')
 
-
-@app.route('/createaccount', methods=['GET', 'POST'])
+@app.route('/createaccout', methods=['GET', 'POST'])
 def create_account():
     if request.method == 'POST':
         username = request.form['username']
@@ -22,15 +24,15 @@ def create_account():
 
         if password != confirm_pw:
             flash("Password Error")
-            return redirect('/createaccount')
+            return redirect('/register')
         
         if collection_users.find_one({"username": username}):
             flash("User already exists")
-            return redirect('/createaccount')
+            return redirect('/register')
 
         if collection_users.find_one({"email": email}):
             flash("Email already used")
-            return redirect('/createaccount')
+            return redirect('/register')
 
         collection_users.insert_one({
             "username": username,
@@ -63,7 +65,7 @@ def user_login():
 
 # username = input("Enter user: ")
 # password = input("Enter password: ")
-# user = collection_name.find_one({"username": username, "password": password})
+# user = collection_users.find_one({"username": username, "password": password})
 
 # print("Correct")
 
