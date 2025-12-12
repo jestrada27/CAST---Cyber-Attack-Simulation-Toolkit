@@ -1,4 +1,4 @@
-from flask import Flask, request, session, redirect, render_template, flash
+from flask import Flask, request, session, redirect, render_template, flash, url_for
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
@@ -74,7 +74,7 @@ def main_dashboard():
         return redirect(url_for('user_login'))
 
     username = session["user"]
-    return render_template('main_dashboard.html', username=username)
+    return render_template('maindashboard.html', username=username)
 
 #logout
 
