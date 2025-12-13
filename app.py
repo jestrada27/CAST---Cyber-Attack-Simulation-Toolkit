@@ -1,6 +1,7 @@
 from flask import Flask, request, session, redirect, render_template, flash, url_for
 from pymongo import MongoClient
 import os
+import bcrypt
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -25,22 +26,26 @@ def create_account():
         confirm_pw = request.form['confirm_pw']
 
         if password != confirm_pw:
-            flash("Password Error")
+            flash('Password not the same', 'danger' )
             return redirect('/createaccount')
         
         if collection_users.find_one({"username": username}):
-            flash("User already exists")
+            flash('User already exists', 'danger')
             return redirect('/createaccount')
 
         if collection_users.find_one({"email": email}):
-            flash("Email already used")
+            flash('Email already used', 'danger')
             return redirect('/createaccount')
+
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
         collection_users.insert_one({
             "username": username,
             "email": email,
-            "password": password
+            "password": hashed_password
         })
+
+        flash('Account successfully created', 'success')
 
         return redirect('/')
     
@@ -54,13 +59,20 @@ def user_login():
         username = request.form['username']
         password = request.form['password']
 
-        user = collection_users.find_one({"username": username, "password": password})
+        #user = collection_users.find_one({"username": username, "password": password})
+        user = collection_users.find_one({"username": username})
 
         if user:
-            session["user"] = username
-            return redirect('/main_dashboard')
+            database_user = user['username']
+            database_pw = user['password']
+            if bcrypt.checkpw(password.encode('utf-8'), database_pw):
+                session["user"] = database_user
+                flash('Logged in', 'success')
+                return redirect('/main_dashboard')
+            else:
+                flash('Incorrect password', 'danger')
         else:
-            flash("Incorrect username or password")
+            flash('Incorrect username', 'danger')
     
     return render_template('login.html')
 
