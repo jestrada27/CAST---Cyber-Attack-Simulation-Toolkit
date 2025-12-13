@@ -70,9 +70,9 @@ def user_login():
                 flash('Logged in', 'success')
                 return redirect('/main_dashboard')
             else:
-                flash('Incorrect password', 'danger')
+                flash('Incorrect login info', 'danger')
         else:
-            flash('Incorrect username', 'danger')
+            flash('Incorrect login info', 'danger')
     
     return render_template('login.html')
 
