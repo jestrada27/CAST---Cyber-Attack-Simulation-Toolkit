@@ -23,6 +23,10 @@
             <form method="POST" action="/createaccount">
                 <div class="form-group">
                     <label for="username">Username</label>
+                    <!-- Username rule put in by Noah -->
+                    <p class="username">
+                        5-30 characters
+                    </p>
                     <input type="text" id="username" name="username" required>
                 </div>
 
@@ -33,6 +37,14 @@
 
                 <div class="form-group">
                     <label for="password">Password</label>
+
+                    <!-- Password rules put in by Noah -->
+                    <p class="password">
+                      <br> - 7 to 40 characters
+                      <br> - 1 uppercase letter and 1 lowercase letter
+                      <br> - 1 number and 1 special character
+                    </p>
+
                     <input type="password" id="password" name="password" required>
                 </div>
 
