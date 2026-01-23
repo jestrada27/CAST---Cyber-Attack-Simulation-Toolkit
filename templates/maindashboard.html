@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CAST Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">CAST</div>
+      <nav class="nav">
+        <a class="nav-item active" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+        <a class="nav-item" href="#">Experiments</a>
+        <a class="nav-item" href="#">Targets</a>
+        <a class="nav-item" href="#">Reports</a>
+        <a class="nav-item" href="{{ url_for('logout') }}">Logout</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Dashboard</h1>
+          <p class="sub">Welcome, {{username}}</p>
+        </div>
+        <div class="pill">Offline mode</div>
+      </header>
+
+      <section class="grid cards">
+        <div class="card">
+          <div class="card-value">Active Experiments</div>
+          <div class="card-hint">Running now</div>
+        </div>
+        <div class="card">
+          <div class="card-value">Completed experiments</div>
+          <div class="card-hint">Total finished</div>
+        </div>
+        <div class="card">
+          <div class="card-value">Alerts</div>
+          <div class="card-hint">From telemetry</div>
+        </div>
+        <div class="card">
+          <div class="card-value">Targets Registered</div>
+          <div class="card-hint">Whitelisted</div>
+        </div>
+      </section>
+
+      <section class="grid panels">
+        <div class="panel">
+          <h2>Safety Status</h2>
+
+          <div class="metric">
+            <div class="metric-row">
+              <span>Consent Verified</span>
+              <span>100%</span>
+            </div>
+            <div class="progress"><div class="bar" style="width:100%"></div></div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-row">
+              <span>Rate Limits Enabled</span>
+              <span>85%</span>
+            </div>
+            <div class="progress"><div class="bar" style="width:85%"></div></div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-row">
+              <span>Dry-Run Default</span>
+              <span>On</span>
+            </div>
+            <div class="tag ok">Enabled</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Module Activity</h2>
+          <div class="barchart">
+            <div class="barcol" style="--h: 30%"><span>SQLi</span></div>
+            <div class="barcol" style="--h: 55%"><span>XSS</span></div>
+            <div class="barcol" style="--h: 20%"><span>Replay</span></div>
+            <div class="barcol" style="--h: 10%"><span>DNS</span></div>
+            <div class="barcol" style="--h: 10%"><span>Brute Force</span></div>
+          </div>
+      </section>
+    </main>
+  <a class="user-notch" href="/profile" aria-label="Open profile">
+  <div class="user-avatar">M</div>
+  <div class="user-meta">
+    <div class="username">{{username}}</div>
+    <div class="user-role">Student</div>
+  </div>
+</a>
+
+</div>
+</body>
+</html>

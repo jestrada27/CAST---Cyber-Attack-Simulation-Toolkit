@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>User Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Link to external stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='profile.css')}}">
+</head>
+
+<body>
+<a href="{{ url_for('main_dashboard') }}" class="btn btn-primary no-underline">
+  ← Back
+</a>
+
+  <div class="page-wrapper">
+    <div class="profile-container">
+      <!-- LEFT: BASIC INFO -->
+      <form class="profile-main">
+        <div class="profile-header">
+          <div class="avatar">{{ user.username[0]|upper }}</div>
+          <div class="profile-header-text">
+            <h1>Profile Settings</h1>
+            <p>Update your basic information and how we contact you.</p>
+          </div>
+        </div>
+
+        <section>
+        <form id="profileForm">
+  <p class="section-title">Account Info</p>
+
+  <!-- Username -->
+  <div class="field-group">
+    <label class="field-label" for="username">
+      Username <span>*</span>
+    </label>
+    <p class="field-description">This is your public username.</p>
+    <input type="text" id="username" name="username" value="{{ user.username }}" required>
+
+    <button type="button" class="btn btn-primary" id="updateUsernameBtn" style="width: 150px;">
+      Save Username
+    </button>
+  </div>
+
+  <!-- Email -->
+  <div class="field-group">
+    <label class="field-label" for="email">
+      Email address <span>*</span>
+    </label>
+    <p class="field-description">Used for login & account recovery.</p>
+    <input type="email" id="email" name="email" value="{{ user.email }}" required>
+    <button type="button" class="btn btn-primary" id="updateEmailBtn" style="width: 150px;">
+      Save Email
+    </button>
+  </div>
+</form>
+
+
+      </section>
+
+      <!-- RIGHT: PASSWORD + DANGER ZONE -->
+      <aside class="profile-side">
+        <section class="card-section">
+          <div class="card-section-header">
+            <button id="openChangePassword" class="btn btn-primary">Change Password</button>
+            <span class="status-pill">Secured</span>
+          </div>
+
+        </section>
+
+        <section class="card-section danger-zone">
+          <div class="card-section-header">
+            <h2>Danger zone</h2>
+          </div>
+          <p class="field-description">Deleting your account is permanent and cannot be undone.</p>
+
+          <div class="actions-row">
+            <button
+  type="button"
+  class="btn btn-primary"
+  style="background: #dc2626; box-shadow: none;"
+  id="deleteAccountBtn"
+>
+  Delete account
+</button>
+
+          </div>
+        </section>
+
+        <a href="{{ url_for('logout') }}" class="btn btn-primary no-underline" style="width: 80px; background:#dc2626;">
+          Logout
+        </a>
+
+
+      </aside>
+
+    </div>
+  </div>
+
+<!-- Modal: Current Password -->
+<div class="modal" id="modal-current-password">
+  <div class="modal-content">
+    <h3>Verify Current Password</h3>
+    <form id="currentPasswordForm">
+      <input type="password" id="currentPasswordInput" placeholder="Current password" required>
+      <button type="submit" class="btn btn-primary">Verify</button>
+      <button type="button" class="btn btn-ghost closeModal">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: New Password -->
+<div class="modal" id="modal-new-password">
+  <div class="modal-content">
+    <h3>Set a New Password</h3>
+    <form id="newPasswordForm">
+      <input type="password" id="newPassword" placeholder="New password" required>
+      <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+      <button type="submit" class="btn btn-primary">Update Password</button>
+      <button type="button" class="btn btn-ghost closeModal">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Account Confirmation Modal -->
+<div class="modal" id="deleteAccountModal">
+  <div class="modal-content">
+    <h3>Delete account?</h3>
+    <p class="field-description">
+      This action is permanent and cannot be undone. All your data may be removed.
+    </p>
+
+    <div class="actions-row" style="margin-top: 16px;">
+      <button type="button" class="btn btn-ghost close-delete-modal">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        style="background: #dc2626; box-shadow: none;"
+        id="confirmDeleteBtn"
+      >
+        Yes, delete my account
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+
+<script>
+  const modalCurrent = document.getElementById("modal-current-password");
+  const modalNew = document.getElementById("modal-new-password");
+
+  const openBtn = document.getElementById("openChangePassword");
+  const closeBtns = document.querySelectorAll(".closeModal");
+
+  // Open current password modal
+  openBtn.addEventListener("click", () => {
+    modalCurrent.classList.add("show");
+  });
+
+  // Close modals
+  closeBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      modalCurrent.classList.remove("show");
+      modalNew.classList.remove("show");
+    });
+  });
+
+  // Validate current password
+  document.getElementById("currentPasswordForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const password = document.getElementById("currentPasswordInput").value;
+
+    // Send to backend for verification
+    const response = await fetch("/verify-password", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({password})
+    });
+
+    const result = await response.json();
+
+    if (result.valid) {
+      modalCurrent.classList.remove("show");
+      modalNew.classList.add("show");
+    } else {
+      alert("Incorrect password");
+    }
+  });
+
+  // Submit new password
+  document.getElementById("newPasswordForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const newPass = document.getElementById("newPassword").value;
+    const confirm = document.getElementById("confirmPassword").value;
+
+    if (newPass !== confirm) {
+      alert("Passwords do not match");
+      return;
+    }
+
+    const response = await fetch("/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({new_password: newPass})
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      modalNew.classList.remove("show");
+      alert("Password updated!");
+    } else {
+      alert("Error updating password");
+    }
+  });
+</script>
+
+<script>
+  const updateUsernameBtn = document.getElementById("updateUsernameBtn");
+  const updateEmailBtn = document.getElementById("updateEmailBtn");
+
+  updateUsernameBtn.addEventListener("click", async () => {
+    const username = document.getElementById("username").value.trim();
+
+    const res = await fetch("/api/change-username", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ username })
+    });
+
+    const data = await res.json();
+    alert(data.message || (data.success ? "Username updated!" : "Error updating username."));
+  });
+
+  updateEmailBtn.addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+
+    const res = await fetch("/api/change-email", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ email })
+    });
+
+    const data = await res.json();
+    alert(data.message || (data.success ? "Email updated!" : "Error updating email."));
+  });
+</script>
+
+<script>
+  const deleteBtn = document.getElementById("deleteAccountBtn");
+  const deleteModal = document.getElementById("deleteAccountModal");
+  const closeDeleteButtons = document.querySelectorAll(".close-delete-modal");
+  const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+
+  // Open modal when Delete account button is clicked
+  deleteBtn.addEventListener("click", () => {
+    deleteModal.classList.add("show");
+  });
+
+  // Close modal when Cancel (or any close-delete-modal) is clicked
+  closeDeleteButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      deleteModal.classList.remove("show");
+    });
+  });
+
+  // When user confirms delete
+  confirmDeleteBtn.addEventListener("click", async () => {
+    // Option A: call a Flask endpoint to delete the account
+    try {
+      const res = await fetch("/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // For example, redirect to login or home page
+        window.location.href = "/";
+      } else {
+        alert(data.message || "Failed to delete account.");
+        deleteModal.classList.remove("show");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong while deleting your account.");
+      deleteModal.classList.remove("show");
+    }
+  });
+</script>
+
+
+
+
+
+</body>
+</html>
