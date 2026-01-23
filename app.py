@@ -3,6 +3,8 @@ from pymongo import MongoClient
 import os
 import bcrypt
 from dotenv import load_dotenv
+import time
+
 load_dotenv()
 
 connection = os.getenv('MONGODB_URI')
@@ -15,15 +17,50 @@ collection_users = database_name["users"]
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRETKEY')
 
+
+#password checking for if the password is a certain length and complexity
+def good_password_check(password):
+    #len greater than 7 and less than 40, 1 lowercase, 1 uppercase, 1 number, and 1 special character ~`! @#$%^&*()_-+={[}]|\:;\"'<,>.?/ allowed 
+    lowercase = False
+    uppercase = False
+    number = False
+    special_char = False
+    special_char_list = "~`! @#$%^&*()_-+={[}]|\:;\"'<,>.?/"
+    
+    if len(password) < 7 or len(password) > 40:
+        return 'Password needs to be 7-40 characters in length.'
+        #flash('Password needs to be 7-40 characters in length.', 'danger')
+        #return redirect('/createaccount')
+    for char in password: 
+        if char.islower():
+            lowercase = True
+        if char.isupper():
+            uppercase = True
+        if char.isdigit():
+            number = True
+        if char in special_char_list:
+            special_char = True
+
+    if lowercase == False or uppercase == False or number == False or special_char == False:
+        return 'Password needs 1 lowercase, 1 uppercase, 1 number, and 1 special character.'
+        #flash('Password needs 1 lowercase, 1 uppercase, 1 number, and 1 special character.', 'danger')
+        #return redirect('/createaccount')
+    return None
+
 #createaccount
 
 @app.route('/createaccount', methods=['GET', 'POST'])
 def create_account():
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
+        username = request.form['username'].strip()
+        email = request.form['email'].strip()
         password = request.form['password']
         confirm_pw = request.form['confirm_pw']
+
+        #username checking for a certain length
+        if len(username) < 5 or len(username) > 30:
+            flash('Username needs to be 5-30 characters in length. Please enter a new username.', 'danger')
+            return redirect('/createaccount')
 
         if password != confirm_pw:
             flash('Password not the same', 'danger' )
@@ -35,6 +72,11 @@ def create_account():
 
         if collection_users.find_one({"email": email}):
             flash('Email already used', 'danger')
+            return redirect('/createaccount')
+        
+        bad_password = good_password_check(password)
+        if bad_password:
+            flash(bad_password, 'danger')
             return redirect('/createaccount')
 
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -70,6 +112,12 @@ def change_password():
     data = request.get_json()
     new_pass = data["new_password"]
 
+    #new password check for security improvement and for password rules - Noah
+    bad_password = good_password_check(new_pass)
+    if bad_password:
+            return {"success": False, "message": bad_password}, 400
+
+
     # Hash password
     hashed_pass = bcrypt.hashpw(new_pass.encode('utf-8'), bcrypt.gensalt())
 
@@ -88,6 +136,11 @@ def change_username():
 
     data = request.get_json() or {}
     new_username = (data.get("username") or "").strip()
+
+    #Check new username for username rules - Noah
+    if len(new_username) < 5 or len(new_username) > 30:
+        return {"success": False, "message": "Username needs to be 5 to 30 characters long"}
+
 
     if not new_username:
         return {"success": False, "message": "Username is required."}, 400
@@ -167,12 +220,31 @@ def delete_account():
 
 
 #userlogin
-    
+
+#limiting number of login attempts 
+attempts_num = 6
+
 @app.route('/', methods=['GET', 'POST'])
 def user_login():
+
+    #set user attempt
+    if 'attempt' not in session:
+        session['attempt'] = 0
+    
+    if 'attempt_lock' in session:
+        if time.time() < session['attempt_lock']:
+            flash('Failed to login after multiple attempts.', 'danger')
+            return render_template('login.html')
+        else:
+            session.pop('attempt_lock', None)
+            session['attempt'] = 0
+
+    bad_attempt = False
+    good_attempt = False
+
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form['username'].strip()
+        password = request.form['password'].strip()
 
         #user = collection_users.find_one({"username": username, "password": password})
         user = collection_users.find_one({"username": username})
@@ -183,13 +255,28 @@ def user_login():
             if bcrypt.checkpw(password.encode('utf-8'), database_pw):
                 session["user"] = database_user
                 session["email"] = user['email']
+                good_attempt = True
                 flash('Logged in', 'success')
                 return redirect('/main_dashboard')
             else:
+                bad_attempt = True
                 flash('Incorrect login info', 'danger')
+                time.sleep(3)
         else:
+            bad_attempt = True
             flash('Incorrect login info', 'danger')
+            time.sleep(3)
+
+        if bad_attempt == True:
+            session['attempt'] += 1
+        elif good_attempt == True:
+            session['attempt'] = 0
+        
+        if session['attempt'] >= attempts_num:
+            session['attempt_lock'] = time.time() + 30
+            flash('Failed to login after multiple attempts. Locked out. Try later.', 'danger')
     
+
     return render_template('login.html')
 
 #Checks to see if the user is logged in. If they are not, we return the redirect response. If they are logged in,
