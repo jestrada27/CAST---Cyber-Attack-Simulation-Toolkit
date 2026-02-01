@@ -2,20 +2,56 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>CAST Dashboard</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+<style>
+:root { --sidebar-w: 260px;}
+
+</style>
+<script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="brand">CAST</div>
-      <nav class="nav">
-        <a class="nav-item active" href="{{ url_for('main_dashboard') }}">Dashboard</a>
-        <a class="nav-item" href="#">Experiments</a>
-        <a class="nav-item" href="#">Targets</a>
-        <a class="nav-item" href="#">Reports</a>
-        <a class="nav-item" href="{{ url_for('logout') }}">Logout</a>
-      </nav>
+  <!-- Member Options Modal-->
+  <div class="member-modal-overlay" id="memberModalOverlay">
+        <div class="modal" id="modal">
+          <h2>TODO</h2>
+          <p>Put options here</p>
+        </div>
+  </div>
+
+
+  <div class="layout" id="layout">
+    <aside class="left-sidebar">
+      <section class="section">
+        <h3>Home</h3>
+        <div>
+          <p class="item">TODO</p>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>My Groups</h3>
+        <div class= "scroll">
+          <!-- Add many items to force scrolling -->
+          <div class="button-group" id="groupButtonContainer">
+            <!-- <button class="item is-selected">All</button> -->
+          </div>
+
+        <button class="item" text-align="center" id="buttonCreateGroup">Create Group</button>
+
+
+        </div>
+      </section>
+
+      <a class="user-notch" href="/profile" aria-label="Open profile">
+            <div class="user-avatar">M</div>
+            <div class="user-meta">
+              <div class="username">{{username}}</div>
+              <div class="user-role">Student</div>
+            </div>
+          </a>
+
     </aside>
 
     <main class="main">
@@ -84,16 +120,157 @@
             <div class="barcol" style="--h: 10%"><span>DNS</span></div>
             <div class="barcol" style="--h: 10%"><span>Brute Force</span></div>
           </div>
+        </div>
       </section>
     </main>
-  <a class="user-notch" href="/profile" aria-label="Open profile">
-  <div class="user-avatar">M</div>
-  <div class="user-meta">
-    <div class="username">{{username}}</div>
-    <div class="user-role">Student</div>
-  </div>
-</a>
+
+    <aside class="right-sidebar" id="rightSidebar">
+
+      <button class="sidebar-toggle" id="toggleSidebar" aria-expanded="true" aria-controls="sidebar">
+        <i class="fa-solid fa-person"></i>
+      </button>
+
+      <section class="section" style="height: 100%">
+        <h3>Members</h3>
+        <div class= "scroll">
+          <!-- Add many items to force scrolling -->
+          <div class="button-group" id="memberContainer">
+            <!-- <button class="item is-selected">All</button> -->
+            <button class="item">Thomas</button>
+            <button class="item">Noah</button>
+            <button class="item">Marco</button>
+            <button class="item">Mobin</button>
+            <button class="item">Jorge</button>
+          </div>
+        </div>
+      </section>
+
+      </aside>
 
 </div>
+
+  <script>
+    function SelectNewGroup(){
+    const groupButtonContainer = document.getElementById("groupButtonContainer");
+    if(groupButtonContainer.children.length > 0){
+
+      groupButtonContainer.children[0].classList.add("is-selected");
+      groupButtonContainer.children[0].click();
+      }
+    }
+
+  </script>
+
+  <!-- Group selection UI -->
+<script>
+    const group = document.querySelector("#groupButtonContainer");
+
+    group.addEventListener("click", (e) => {
+      const clicked = e.target.closest("button");
+      if (!clicked) return;
+
+      group.querySelectorAll(".item.is-selected").forEach((item) => {
+        item.classList.remove("is-selected");
+      });
+
+      clicked.classList.add("is-selected");
+    });
+  </script>
+
+  <!-- Create new group button -->
+<script>
+function CreateGroupButton(){
+  const button = document.createElement("button");
+  button.textContent = "Click me";
+  button.className = "item";
+  button.addEventListener("click", () => {
+    //alert("Button clicked!");
+    //TODO
+    console.log("clicked");
+  });
+
+  button.addEventListener("contextmenu", (event) => {
+  event.preventDefault(); // stops the browser menu
+  button.remove();
+  if(button.classList.contains("is-selected")){
+    SelectNewGroup();
+  }
+});
+
+  document.getElementById("groupButtonContainer").appendChild(button);
+  if(document.getElementById("groupButtonContainer").children.length === 1){
+      SelectNewGroup();
+    }
+  }
+</script>
+
+<!-- Setup button for creating new group-->
+<script>
+   const buttonCreateGroup = document.querySelector("#buttonCreateGroup");
+   const buttonGroup = document.querySelector("#groupButtonContainer");
+
+   buttonCreateGroup.addEventListener("click", (e) => {
+      const clicked = e.target.closest("button");
+
+      //Create the new group button
+      CreateGroupButton();
+
+    });
+</script>
+
+<!-- Collapse sidebar logic-->
+<script>
+    const layout = document.getElementById("layout");
+    const toggleRightSidebarbtn = document.getElementById("toggleSidebar");
+    const rightSidebar = document.getElementById("rightSidebar");
+
+    toggleRightSidebarbtn.addEventListener("click", () => {
+      const collapsed = layout.classList.toggle("is-collapsed");
+      toggleRightSidebarbtn.setAttribute("aria-expanded", String(!collapsed));
+    });
+  </script>
+  <!-- Member modal options -->
+<script>
+  const modalOverlay = document.getElementById("memberModalOverlay");
+  // Close when clicking outside modal
+  modalOverlay.addEventListener("click", (e) => {
+    if (!modal.contains(e.target)) {
+      closeModalFn();
+    }
+  });
+
+  function closeModalFn() {
+    modalOverlay.style.display = "none";
+  }
+</script>
+
+  <!-- Member modal setup -->
+<script>
+  const memberContainer = document.querySelector("#memberContainer");
+  const memberModalOverlay = document.getElementById("memberModalOverlay");
+  const modal = document.getElementById("modal");
+
+    memberContainer.addEventListener("click", (e) => {
+      const clicked = e.target.closest("button");
+      if (!clicked) return;
+
+      memberModalOverlay.style.display = "block";
+
+    const modalWidth = modal.offsetWidth;
+    const padding = 10;
+
+    let left = e.clientX - modalWidth - padding;
+    let top = e.clientY + padding;
+
+    if (left < padding) left = padding;
+    if (top + modal.offsetHeight > window.innerHeight) {
+      top = window.innerHeight - modal.offsetHeight - padding;
+    }
+
+    modal.style.left = `${left}px`;
+    modal.style.top = `${top}px`;
+    });
+</script>
+
 </body>
 </html>
