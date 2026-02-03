@@ -13,13 +13,19 @@
 </head>
 <body>
   <!-- Member Options Modal-->
-  <div class="member-modal-overlay" id="memberModalOverlay">
-        <div class="modal" id="modal">
+  <div class="modal-overlay" id="memberModalOverlay">
+        <div class="modal" id="memberModal">
           <h2>TODO</h2>
           <p>Put options here</p>
         </div>
   </div>
 
+  <div class="modal-overlay" id="groupModalOverlay">
+        <div class="modal" id="groupModal">
+          <h2>TODO</h2>
+          <p>Put options here</p>
+        </div>
+  </div>
 
   <div class="layout" id="layout">
     <aside class="left-sidebar">
@@ -231,17 +237,28 @@ function CreateGroupButton(){
   </script>
   <!-- Member modal options -->
 <script>
-  const modalOverlay = document.getElementById("memberModalOverlay");
+  const memberModalOverlay = document.getElementById("memberModalOverlay");
   // Close when clicking outside modal
-  modalOverlay.addEventListener("click", (e) => {
-    if (!modal.contains(e.target)) {
+  memberModalOverlay.addEventListener("click", (e) => {
+    if (!memberModal.contains(e.target)) {
       closeModalFn();
     }
   });
 
   function closeModalFn() {
-    modalOverlay.style.display = "none";
+    memberModalOverlay.style.display = "none";
   }
+
+  const groupModalOverlay = document.getElementById("groupModalOverlay");
+  groupModalOverlay.addEventListener("click", (e) => {
+
+    if(!modal.contains(e.target)){
+    groupModalOverlay.style.display = "none";
+    }
+    });
+
+
+
 </script>
 
   <!-- Member modal setup -->
