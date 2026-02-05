@@ -19,7 +19,7 @@ def create_group(name, owner):
   
     group_id = groups_collection.insert_one({
     "name": name,
-    "owner": owner, 
+    "owner": object_id(owner), 
     "banned": [],
     "invites": []
     }).inserted_id
@@ -41,7 +41,7 @@ def create_group(name, owner):
         return None, None, None
     
     collection_users.update_one(
-    {"username": object_id(owner)},
+    {"_id": object_id(owner)},
     {
         "$push": {
             "groups": {"group_id": group_id,"role": "admin"},
@@ -52,9 +52,9 @@ def create_group(name, owner):
     return group_id, user_key, admin_key
 
 
-def admin_check(username, group_id, key):
+def admin_check(user_id, group_id, key):
 
-    user = find_user(username)
+    user = find_user(user_id)
     if not user: return False
 
     # for group in user.get("groups", []):
@@ -81,11 +81,11 @@ def admin_check(username, group_id, key):
     return True
  
 
-def find_user(username):
-    return collection_users.find_one({"username": username})
+# def find_username(username):
+#     return collection_users.find_one({"username": username})
 
 def find_user(user_id):
-    return collection_users.find_one({"_id": user_id})
+    return collection_users.find_one({"_id": object_id(user_id)})
 
 
 def find_group(group_id):
@@ -96,16 +96,20 @@ def find_group(group_id):
 
 #def banned_user(username, group_id):
 def banned_user(user_id, group_id):
-    group_id = object_id(group_id)
+    #group_id = object_id(group_id)
     group_ban = find_group(group_id)
+    if not group_ban:
+        return False
+
     #return group_ban and username in group_ban.get("banned", [])
-    return group_ban and user_id in group_ban.get("banned", [])
+    #return group_ban and user_id in group_ban.get("banned", [])
+    return object_id(user_id) in group_ban.get("banned", [])
 
 
 
 #server = group
 #def getUsersForServer(user, group_id): #users: Gets a list of all users with their roles.
-def getUsersForServer(_, group_id):
+def getUsersForServer(group_id):
     # group_members = collection_users.find({"groups.group_id": group_id})
     # member_list = []
     # for member in group_members:
@@ -119,14 +123,14 @@ def getUsersForServer(_, group_id):
     user_find = collection_users.find({"groups.group_id": group_id},{"username": 1, "groups": {"$elemMatch": {"group_id": group_id}}} )
     users_list = []
 
-    # for user in user_find:
-    #     for group in user.get("groups", []):
-    #         if group["group_id"] == group_id:
-    #             users_list.append({"username": user["username"], "role": group["role"]})
-    # return users_list
     for user in user_find:
-        group = user.get("groups", [])[0]
-        users_list.append({"username": user["username"], "role": group["role"]})
+        for group in user.get("groups", []):
+            if group["group_id"] == group_id:
+                users_list.append({"username": user["username"], "role": group["role"]})
+    # return users_list
+    # for user in user_find:
+    #     group = user.get("groups", [])[0]
+    #     users_list.append({"username": user["username"], "role": group["role"]})
 
     return users_list
 
@@ -155,7 +159,7 @@ def changePrivilegeForUser(admin, user_id, newPrivelige, group_id, admin_key):
                                                   # {"$set": {"groups.$.role": newPrivelige}}).modified_count
     privilege_change = collection_users.update_one({"_id": object_id(user_id), "groups.group_id": group_id},
                                                    {"$set": {"groups.$.role": newPrivelige}}).modified_count
-    return privilege_change == 1, None
+    return privilege_change == 1
 
 
 #def inviteUserToServer(admin, user, group_id): #response status: Invites a user to a server. As of right now, i only plan on letting admins invite people to servers.
@@ -166,7 +170,7 @@ def inviteUserToServer(admin, group_id, admin_key):
     
     invite = secrets.token_urlsafe(16)
     #group_id = object_id(group_id)
-    groups_collection.update_one({"_id": ObjectId(group_id)}, {"$addToSet": {"invites": invite}})
+    groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": invite}})
     return True, invite
 
 
@@ -174,24 +178,27 @@ def banUserFromServer(admin, user_id, group_id, admin_key): #response status: Ba
     if not admin_check(admin, group_id, admin_key):
         return False, None
     #group_id = object_id(group_id)
-    groups_collection.update_one({"_id": ObjectId(group_id)}, {"$addToSet": {"banned": user_id}})
+    groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"banned": object_id(user_id)}})
 
     #collection_users.update_one({"username": user_id}, {"$pull": {"groups": {"group_id": group_id}, "group_keys": {"group_id": group_id}}})
-    collection_users.update_one({"_id": ObjectId(user_id)}, {"$pull": {"groups": {"group_id": group_id}, "group_keys": {"group_id": group_id}}})
+    collection_users.update_one({"_id": object_id(user_id)}, {"$pull": {"groups": {"group_id": group_id}, "group_keys": {"group_id": group_id}}})
     return True, None
 
 
 def addUserToServer(user_id, group_id):
 
+    user_id = object_id(user_id)
+    group_id = object_id(group_id)
+
     if banned_user(user_id, group_id):
         return False, None
-    group_id = object_id(group_id)
+    
     #user_check = collection_users.find_one({"username": user_id})
     user_check = find_user(user_id)
     if not user_check: return False, None
 
     #in_group = collection_users.find_one({"username": user_id, "groups.group_id": group_id})
-    in_group = collection_users.find_one({"_id": ObjectId(user_id), "groups.group_id": group_id})
+    in_group = collection_users.find_one({"_id": user_id, "groups.group_id": group_id})
     if in_group: return False, None
 
     user_key = secrets.token_urlsafe(16)
@@ -204,7 +211,7 @@ def addUserToServer(user_id, group_id):
 
     # )
     collection_users.update_one({
-        "_id": ObjectId(user_id)},
+        "_id": user_id},
         {"$push": {"groups": {"group_id": group_id, "role": "member"}, 
                        "group_keys": {"group_id": group_id, "user_key": user_key}
         }}
@@ -219,7 +226,7 @@ def userJoinServer(user_id, invite):
     if not group_invite:
         return False, None
     
-    if user_id in group_invite.get("banned", []):
+    if object_id(user_id) in group_invite.get("banned", []):
         return False, None
     #group_id = object_id(group_id)
     groups_collection.update_one({"_id": group_invite["_id"]}, {"$pull": {"invites": invite}})
@@ -229,3 +236,18 @@ def userJoinServer(user_id, invite):
     if not added_conf:
         return False, None
     return True, user_key
+
+
+def getUserServers(user_id):
+    user_check = find_user(user_id)
+
+    if not user_check:
+        return []
+    groups_list = []
+    for each_group in user_check.get("groups", []):
+        group = find_group(each_group["group_id"])
+
+        if group:
+            groups_list.append({"group_id": str(group["_id"]), "name": group["name"], "role": each_group["role"]})
+
+    return groups_list
