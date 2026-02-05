@@ -1,5 +1,5 @@
 from flask import Blueprint, request, session, jsonify
-from .user_manage import  create_group, userJoinServer, inviteUserToServer, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser
+from .user_manage import  create_group, userJoinServer, inviteUserToServer, getUserServers, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser
 
 user_manage_bp = Blueprint("user_management", __name__, url_prefix="/groups")
 
@@ -29,13 +29,16 @@ def get_server_users(group_id):
     if "user_id" not in session:
         return jsonify({"success": False}), 401
     
-    group_users = getUsersForServer(None, group_id)
+    group_users = getUsersForServer(group_id)
     return jsonify({"users": group_users})
 
 
 #@user_manage_bp.route("/user_activity/<username>", methods=["GET"])
 @user_manage_bp.route("/user_activity/<user_id>/<group_id>", methods=["GET"])
 def user_activity(user_id, group_id):
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    
     user_activity = getActivityForUser(user_id, group_id)
     return jsonify({"activity": user_activity })
 
@@ -61,7 +64,8 @@ def change_privilege():
         return {"success": False, "message": "Invalid"}, 400
     #admin = data.get("admin")
     admin = session["user_id"]
-    user_target = data.get("username")
+    #user_target = data.get("username")
+    user_target = data.get("user_id")
     role = data.get("role")
     group_id = data.get("group_id")
     admin_key = data.get("admin_key")
@@ -72,7 +76,7 @@ def change_privilege():
     if admin == user_target:
         return jsonify({"success": False, "message": "Can't change your own privilege"}), 400
 
-    privilege_change, _ = changePrivilegeForUser(admin, user_target, role, group_id, admin_key)
+    privilege_change = changePrivilegeForUser(admin, user_target, role, group_id, admin_key)
     if not privilege_change:
         return jsonify({"success": False}), 403
     
@@ -111,7 +115,7 @@ def ban_user():
         return jsonify({"success": False}), 400
     #admin = data.get("admin")
     admin = session["user_id"]
-    user_target = data.get("username")
+    user_target = data.get("user_id")
     group_id = data.get("group_id")
     admin_key = data.get("admin_key")
 
@@ -152,15 +156,22 @@ def join_group():
     if not data:
         return jsonify({"success": False}), 400
     #username = data.get("username")
-    username = session["user_id"]
+    user_id = session["user_id"]
     invite = data.get("invite")
 
     if not invite:
         return {"success": False, "message": "No invite"}, 400
 
-    join_check, key = userJoinServer(username, invite)
+    join_check, key = userJoinServer(user_id, invite)
     if not join_check:
         return jsonify({"success": False}), 403
     return jsonify({"success": True, "user_key": key})
 
 
+@user_manage_bp.route("/user_group", methods=["GET"])
+def user_group():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    
+    user_in_groups = getUserServers(session["user_id"])
+    return jsonify({"groups": user_in_groups})
