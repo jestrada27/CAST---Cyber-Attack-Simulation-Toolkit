@@ -350,10 +350,18 @@ h1{margin:0 0 4px 0; font-size:28px}
 /* Modal box */
 .modal {
   position: absolute;
-  background: black;
+  background: blue;
   padding: 20px;
   border-radius: 8px;
   width: 300px;
   pointer-events: auto;
   box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-groups{
+    background: black;
+}
+
+.modal-members{
+    background: yellow;
 }

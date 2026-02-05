@@ -14,14 +14,16 @@
 <body>
   <!-- Member Options Modal-->
   <div class="modal-overlay" id="memberModalOverlay">
-        <div class="modal" id="memberModal">
+        <div class="modal modal-members" id="memberModal">
           <h2>TODO</h2>
-          <p>Put options here</p>
+          <p>Promote</p>
+          <p>Kick</p>
+          <p>See Activity</p>
         </div>
   </div>
 
   <div class="modal-overlay" id="groupModalOverlay">
-        <div class="modal" id="groupModal">
+        <div class="modal modal-groups" id="groupModal">
           <h2>TODO</h2>
           <p>Put options here</p>
         </div>
@@ -165,10 +167,8 @@
       }
     }
 
-  </script>
+  //<!-- Group selection UI -->
 
-  <!-- Group selection UI -->
-<script>
     const group = document.querySelector("#groupButtonContainer");
 
     group.addEventListener("click", (e) => {
@@ -181,10 +181,9 @@
 
       clicked.classList.add("is-selected");
     });
-  </script>
 
-  <!-- Create new group button -->
-<script>
+  //<!-- Create new group button -->
+
 function CreateGroupButton(){
   const button = document.createElement("button");
   button.textContent = "Click me";
@@ -208,10 +207,9 @@ function CreateGroupButton(){
       SelectNewGroup();
     }
   }
-</script>
 
-<!-- Setup button for creating new group-->
-<script>
+//<!-- Setup button for creating new group-->
+
    const buttonCreateGroup = document.querySelector("#buttonCreateGroup");
    const buttonGroup = document.querySelector("#groupButtonContainer");
 
@@ -222,10 +220,9 @@ function CreateGroupButton(){
       CreateGroupButton();
 
     });
-</script>
 
-<!-- Collapse sidebar logic-->
-<script>
+//<!-- Collapse sidebar logic-->
+
     const layout = document.getElementById("layout");
     const toggleRightSidebarbtn = document.getElementById("toggleSidebar");
     const rightSidebar = document.getElementById("rightSidebar");
@@ -234,44 +231,39 @@ function CreateGroupButton(){
       const collapsed = layout.classList.toggle("is-collapsed");
       toggleRightSidebarbtn.setAttribute("aria-expanded", String(!collapsed));
     });
-  </script>
-  <!-- Member modal options -->
-<script>
+
+  //<!-- Member modal options -->
+
+function closeModalFn(modalOverlay) {
+    modalOverlay.style.display = "none";
+  }
+
   const memberModalOverlay = document.getElementById("memberModalOverlay");
   // Close when clicking outside modal
   memberModalOverlay.addEventListener("click", (e) => {
+
     if (!memberModal.contains(e.target)) {
-      closeModalFn();
+      closeModalFn(memberModalOverlay);
     }
   });
 
-  function closeModalFn() {
-    memberModalOverlay.style.display = "none";
-  }
-
   const groupModalOverlay = document.getElementById("groupModalOverlay");
+  const groupModal = document.getElementById("groupModal");
   groupModalOverlay.addEventListener("click", (e) => {
-
-    if(!modal.contains(e.target)){
-    groupModalOverlay.style.display = "none";
+    if(!groupModal.contains(e.target)){
+    closeModalFn(groupModalOverlay);
     }
     });
 
 
+  //<!-- Member modal setup -->
 
-</script>
-
-  <!-- Member modal setup -->
-<script>
-  const memberContainer = document.querySelector("#memberContainer");
-  const memberModalOverlay = document.getElementById("memberModalOverlay");
-  const modal = document.getElementById("modal");
-
-    memberContainer.addEventListener("click", (e) => {
+  function SetupModal(modalButtonContainer, modalOverlay, modal){
+     modalButtonContainer.addEventListener("click", (e) => {
       const clicked = e.target.closest("button");
       if (!clicked) return;
 
-      memberModalOverlay.style.display = "block";
+      modalOverlay.style.display = "block";
 
     const modalWidth = modal.offsetWidth;
     const padding = 10;
@@ -287,6 +279,13 @@ function CreateGroupButton(){
     modal.style.left = `${left}px`;
     modal.style.top = `${top}px`;
     });
+  }
+
+  const memberContainer = document.querySelector("#memberContainer");
+  const memberModal = document.getElementById("memberModal");
+
+  SetupModal(memberContainer,memberModalOverlay, memberModal);
+  SetupModal(buttonGroup, groupModalOverlay, groupModal);
 </script>
 
 </body>
