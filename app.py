@@ -415,6 +415,60 @@ def main_dashboard():
     username = session["username"]
     return render_template('maindashboard.html', username=username)
 
+#databse/reports
+
+@app.route('/database')
+def database_page():
+    if "user_id" not in session:
+        flash("Please log in to view the database.", "error")
+        return redirect(url_for('user_login'))
+    import database
+    user_id = session["user_id"]  
+    logs = database.get_all_logs(user_id)  
+    stats = database.get_attack_stats(user_id)  
+    username = session["username"]  
+    return render_template('database.html', logs=logs, stats=stats, username=username)  
+
+@app.route('/simulate_attack', methods=['POST'])
+def simulate_attack():
+    if "user_id" not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    import database
+    user_id = session["user_id"]
+    attack = database.generate_random_attack(user_id)
+    
+    if attack:
+        return {"success": True, "message": "Attack generated"}
+    else:
+        return {"error": "Failed to generate attack"}, 500
+
+
+@app.route('/delete_attack/<attack_id>', methods=['POST'])
+def delete_attack_route(attack_id):
+    if "user_id" not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    import database
+    user_id = session["user_id"]
+    success = database.delete_attack(attack_id, user_id)
+    
+    if success:
+        return {"success": True, "message": "Attack deleted"}
+    else:
+        return {"error": "Attack not found"}, 404
+
+@app.route('/clear_all_attacks', methods=['POST'])
+def clear_all_attacks_route():
+    if "user_id" not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    import database
+    user_id = session["user_id"]
+    count = database.clear_all_attacks(user_id)
+    
+    return {"success": True, "message": f"Deleted {count} attacks"}
+
 #profile
 @app.route('/profile')
 def profile():
@@ -442,4 +496,3 @@ def logout():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
