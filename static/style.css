@@ -49,6 +49,16 @@ input[type="password"] {
     border-radius: 4px;
 }
 
+.btn {
+  border-radius: 999px;
+  border: none;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.1s ease;
+}
+
 .btn-primary {
     width: 100%;
     background: #007bff;
@@ -59,8 +69,24 @@ input[type="password"] {
     cursor: pointer;
 }
 
+.btn-simple {
+    background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+}
+
 .btn-primary:hover {
     background: #005fc2;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  background: #f3f4f6;
 }
 
 .form-footer {
@@ -89,4 +115,47 @@ a {
 .alert-success {
     background: #d3ffd9;
     color: #065f1b;
+}
+
+/*Modal =======================================================*/
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none; /* hidden by default */
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+/*The type of modal that appears at a specific location on the screen*/
+.modal-dynamic{
+  position: absolute;
+  background: blue;
+  padding: 20px;
+  border-radius: 8px;
+  width: 300px;
+  pointer-events: auto;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal.show {
+  display: flex;
+}
+
+.modal-content {
+  background: #1f1e1e;
+  padding: 24px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 350px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+.modal-content input {
+  width: 100%;
+  margin-bottom: 12px;
 }
