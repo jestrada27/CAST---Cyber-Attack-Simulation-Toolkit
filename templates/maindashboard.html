@@ -21,12 +21,24 @@
           <p>See Activity</p>
         </div>
   </div>
-
+  <!-- Group modal -->
   <div class="modal-overlay" id="groupModalOverlay">
         <div class="modal modal-groups" id="groupModal">
           <h2>TODO</h2>
           <p>Put options here</p>
         </div>
+  </div>
+
+  <!-- Create new group modal-->
+  <div class="modal-create-group" id="createGroupModal">
+    <div class="modal-content">
+      <h3>Create new Group: Whats the name?</h3>
+      <form id="currentPasswordForm">
+        <input type="text" id="createGroupNameInput" placeholder="Name" required>
+        <button type="submit" id="createGroupModalCreateBtn">Create</button>
+        <button type="button" id="createGroupModalCloseBtn">Cancel</button>
+      </form>
+    </div>
   </div>
 
   <div class="layout" id="layout">
@@ -184,41 +196,62 @@
 
   //<!-- Create new group button -->
 
-function CreateGroupButton(){
+function CreateGroupButton(groupName){
   const button = document.createElement("button");
-  button.textContent = "Click me";
+  button.textContent = groupName;
   button.className = "item";
   button.addEventListener("click", () => {
-    //alert("Button clicked!");
-    //TODO
+    //TODO: Display the stuff in the dashboard page
     console.log("clicked");
   });
 
   button.addEventListener("contextmenu", (event) => {
   event.preventDefault(); // stops the browser menu
-  button.remove();
-  if(button.classList.contains("is-selected")){
-    SelectNewGroup();
-  }
+  DisplayModal(groupModalOverlay, groupModal, false, event);
 });
 
   document.getElementById("groupButtonContainer").appendChild(button);
   if(document.getElementById("groupButtonContainer").children.length === 1){
       SelectNewGroup();
     }
-  }
+}
 
 //<!-- Setup button for creating new group-->
 
    const buttonCreateGroup = document.querySelector("#buttonCreateGroup");
    const buttonGroup = document.querySelector("#groupButtonContainer");
 
+   const createGroupModal = document.getElementById("createGroupModal");
+   const createGroupModalCloseButton = document.getElementById("createGroupModalCloseBtn");
+   const createGroupModalCreateButton = document.getElementById("createGroupModalCreateBtn");
+
+   createGroupModalCloseButton.addEventListener("click", () => {
+   createGroupModal.classList.remove("show");
+   document.getElementById("createGroupNameInput").value = "";
+   });
+
+   document.getElementById("currentPasswordForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const groupName = document.getElementById("createGroupNameInput").value;
+    console.log(groupName);
+
+    createUserGroup(groupName)
+    .then(result => {
+    CreateGroupButton(groupName);
+    console.log(result.group_id);
+    })
+    .catch(err => {
+    console.error(err.message);
+    });
+
+
+    document.getElementById("createGroupNameInput").value = "";
+    createGroupModal.classList.remove("show");
+
+    });
+
    buttonCreateGroup.addEventListener("click", (e) => {
-      const clicked = e.target.closest("button");
-
-      //Create the new group button
-      CreateGroupButton();
-
+      createGroupModal.classList.add("show");
     });
 
 //<!-- Collapse sidebar logic-->
@@ -258,34 +291,127 @@ function closeModalFn(modalOverlay) {
 
   //<!-- Member modal setup -->
 
-  function SetupModal(modalButtonContainer, modalOverlay, modal){
-     modalButtonContainer.addEventListener("click", (e) => {
-      const clicked = e.target.closest("button");
-      if (!clicked) return;
-
-      modalOverlay.style.display = "block";
+  function DisplayModal(modalOverlay, modal, bLeftHanded, e){
+  modalOverlay.style.display = "block";
 
     const modalWidth = modal.offsetWidth;
     const padding = 10;
 
-    let left = e.clientX - modalWidth - padding;
+
+    let xPos = 0;
+
+    if(bLeftHanded){
+      xPos = e.clientX - modalWidth - padding;
+    }else{
+      xPos = e.clientX + padding;
+    }
+
     let top = e.clientY + padding;
 
-    if (left < padding) left = padding;
+    if (xPos < padding) xPos = padding;
     if (top + modal.offsetHeight > window.innerHeight) {
       top = window.innerHeight - modal.offsetHeight - padding;
     }
 
-    modal.style.left = `${left}px`;
+    modal.style.left = `${xPos}px`;
     modal.style.top = `${top}px`;
-    });
+
   }
 
   const memberContainer = document.querySelector("#memberContainer");
   const memberModal = document.getElementById("memberModal");
 
-  SetupModal(memberContainer,memberModalOverlay, memberModal);
-  SetupModal(buttonGroup, groupModalOverlay, groupModal);
+  memberContainer.addEventListener("click", (e) => {
+  const clicked = e.target.closest("button");
+      if (!clicked) return;
+  DisplayModal(memberModalOverlay, memberModal, true, e);
+  });
+
+  //======================== Dynamically create group buttons
+  async function loadUserGroups() {
+  try {
+    const res = await fetch("/groups/user_group", {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+      // IMPORTANT if your frontend is on a different domain/port:
+      // credentials: "include",
+    });
+
+    // Handle not-logged-in (401)
+    if (res.status === 401) {
+      const err = await res.json();
+      console.log("Not logged in:", err.message);
+      // e.g. redirect:
+      // window.location.href = "/login";
+      return;
+    }
+
+    if (!res.ok) {
+      throw new Error(`Request failed: ${res.status}`);
+    }
+
+    const data = await res.json(); // { groups: ... }
+
+    // Do stuff with it:
+    console.log("Groups:", data.groups);
+    renderGroups(data.groups);
+
+  } catch (e) {
+    console.error("Error loading groups:", e);
+  }
+}
+
+function renderGroups(groups) {
+  for (const g of groups) {
+    CreateGroupButton(g.name);
+  }
+
+  return;
+}
+
+loadUserGroups();
+
+//========================================================= Create new group============
+
+async function createUserGroup(name) {
+  const res = await fetch("/groups/create_user_group", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    body: JSON.stringify({ name }),
+    // If frontend is on a different origin/port, uncomment:
+    // credentials: "include",
+  });
+
+  const data = await res.json().catch(() => ({})); // in case non-JSON error
+
+  if (res.status === 401) {
+    // Not logged in
+    console.log(data.message || "Not logged in");
+    // window.location.href = "/login";
+    return;
+  }
+
+  if (res.status === 400) {
+    // Validation error (e.g., missing name)
+    alert(data.message || "Bad request");
+    return;
+  }
+
+  if (!res.ok) {
+    console.error("Server error:", res.status, data);
+    alert("Something went wrong.");
+    return;
+  }
+
+  // Success
+  console.log("Created group:", data);
+  // data = { success: true, group_id: "...", user_key: "...", admin_key: "..." }
+  return data;
+}
+
 </script>
 
 </body>

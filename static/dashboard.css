@@ -365,3 +365,34 @@ h1{margin:0 0 4px 0; font-size:28px}
 .modal-members{
     background: yellow;
 }
+
+.modal-create-group{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none; /* hidden by default */
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal-create-group.show {
+  display: flex;
+}
+
+.modal-content {
+  background: #1f1e1e;
+  padding: 24px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 350px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+.modal-content input {
+  width: 100%;
+  margin-bottom: 12px;
+}
