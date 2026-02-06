@@ -5,7 +5,7 @@ import random
 import os
 
 # MongoDB connection
-MONGODB_URI = os.getenv('MONGODB_URI', "mongodb+srv://Jorge_db_user:jjnoWwPTeLYsHBlP@castcluster.j40rgtw.mongodb.net/")
+#MONGODB_URI = YOUR URL
 
 client = MongoClient(MONGODB_URI, tlsAllowInvalidCertificates=True)
 database_name = client["CAST"]
@@ -101,4 +101,5 @@ def update_report_url(attack_id, user_id, new_url):
 def seed_initial_attacks(user_id, count=5):
     for _ in range(count):
         generate_random_attack(user_id)
+
     print(f"Seeded {count} attacks for user {user_id}")
