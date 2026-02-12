@@ -9,17 +9,12 @@ import time
 from bson import ObjectId
 from itsdangerous import URLSafeTimedSerializer as Serializer
 
-#load_dotenv()
 
-# connection = os.getenv('MONGODB_URI')
-
-# dbclient = MongoClient(connection, tlsAllowInvalidCertificates=True)  
-
-# database_name = dbclient["CAST"]
 from database import database_name
 collection_users = database_name["users"]
 
 app = Flask(__name__)
+#Setting up the mail server that is used for sending the user their reset password link
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -28,8 +23,12 @@ app.config['MAIL_PASSWORD'] = os.getenv('EMAIL_PASS')
 app.secret_key = os.getenv('SECRETKEY')
 mail = Mail(app)
 
+#registering the user_management and reports / logs with app.py so they can be used when running the app
 from user_management import user_manage_bp
 app.register_blueprint(user_manage_bp)
+
+from reports import reports_bp
+app.register_blueprint(reports_bp)
 
 
 #password checking for if the password is a certain length and complexity
@@ -63,13 +62,16 @@ def good_password_check(password):
         #return redirect('/createaccount')
     return None
 
-
+#token function that is used to create the token for the user to be able to reset their password.
 def reset_token(user_id):
     #serial = Serializer(app.config['SECRETKEY'], expiration=expiration)
+#creation of the reset token using Serializer
     serial = Serializer(app.secret_key)
     return serial.dumps(str(user_id), salt="password_reset")
 
 
+#function to verify the reset token and that was generated with the Serializer
+#loads and checks to see if a token for the user was created and makes sure
 def verify_token(token, max_age=1800):
     serial = Serializer(app.secret_key)
     try: 
@@ -79,7 +81,9 @@ def verify_token(token, max_age=1800):
     return user_id
 
 
-#forgot password
+#forgot password route. used for getting the user to the forgot password page.
+#allows the user to enter their email and checks for that email in the database
+#if found, the user gets sent a reset token in a link to their email
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
@@ -96,7 +100,9 @@ def forgot_password():
     return render_template('forgotpassword.html')
 
 
-##password reset
+##password reset route for when the user clicks on the reset link. Checks if the user is valid and has a valid token.
+#lets the user input their new password and checks if it's good. 
+#hashes the password, stores it in the db, and then takes the user back to the login page
 @app.route('/password_reset/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     user_id = verify_token(token)
@@ -131,6 +137,7 @@ def reset_password(token):
     return render_template('passwordreset.html', token=token)
 
 
+#function for sending the user their reset token. creates the url with a message and sends it to the user
 def send_reset(user, token):
     #token = user_id.reset_token()
     password_reset_link = url_for('reset_password', token=token, _external=True)
