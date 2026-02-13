@@ -1,28 +1,41 @@
-# cast/modules/bruteforce/report_generator.py
-import sqlite3
+# bruteforce/report_generator.py
 import csv
-import os
+from .telemetry_db import fetch_events, init_db
 
-DB = os.environ.get("CAST_BF_TELEMETRY_DB", "./bruteforce_telemetry.db")
 
-def export_csv(run_id, out_path):
-    conn = sqlite3.connect(DB)
-    cur = conn.cursor()
-    cur.execute("SELECT timestamp, username, password, remote_ip, status, http_code, message FROM telemetry WHERE run_id=? ORDER BY id", (run_id,))
-    rows = cur.fetchall()
-    conn.close()
-    with open(out_path, "w", newline='', encoding='utf-8') as f:
+def export_csv(run_id: str, out_path: str):
+    init_db()
+    events = fetch_events(run_id)
+
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["timestamp","username","password","remote_ip","status","http_code","message"])
-        writer.writerows(rows)
+        writer.writerow([
+            "timestamp", "run_id", "username", "password", "remote_ip",
+            "status", "http_code", "message", "target_url"
+        ])
+        for e in events:
+            writer.writerow([
+                e.get("timestamp", ""),
+                e.get("run_id", ""),
+                e.get("username", ""),
+                e.get("password", ""),
+                e.get("remote_ip", ""),
+                e.get("status", ""),
+                e.get("http_code", ""),
+                e.get("message", ""),
+                e.get("target_url", ""),
+            ])
+
     return out_path
+
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 3:
-        print("Usage: report_generator.py <run_id> <out_csv>")
-        exit(1)
+        print("Usage: python -m bruteforce.report_generator <run_id> <out_csv>")
+        raise SystemExit(1)
+
     run_id = sys.argv[1]
-    out = sys.argv[2]
-    export_csv(run_id, out)
-    print("Exported to", out)
+    out_csv = sys.argv[2]
+    export_csv(run_id, out_csv)
+    print("Exported to", out_csv)
