@@ -304,7 +304,7 @@
                <a class="nav-item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
                <a class="nav-item" href="#">Experiments</a>
                <a class="nav-item" href="#">Targets</a>
-               <a class="nav-item active" href="{{ url_for('database_page') }}">Reports</a>
+               <a class="nav-item active" href="{{ url_for('reports.database_page') }}">Reports</a>
                <a class="nav-item" href="{{ url_for('logout') }}">Logout</a>
            </nav>
        </aside>
@@ -341,23 +341,44 @@
                    <div class="stat-card-value">{{ stats.avg_performance }}%</div>
                </div>
            </div>
-<!-- 
-           <select id="attack_type">
-                
+
+            <!-- Done by Noah -->
+           <select id="attack_type" name="attack_type">
+                <option value="All">Attacks</option>
+                <option value="Brute Force">Brute Force</option>
+                <option value="SQL Injection">SQL Injection</option>
+                <option value="DNS">DNS Tunneling</option>
+                <option value="XSS">XSS</option>
+                <option value="Replay">Replay</option>
            </select>
 
-            <select id="status">
-            
+            <select id="status" name="status">
+                <option value="All">Status</option>
+                <option value="Stored to Local">Stored to Local</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Failed">Failed</option>
            </select>
 
             <select id="performance">
-            
+                <option value="All">Performance</option>
+                <option value="1-50">1 - 50</option>
+                <option value="51-100">51 - 100</option>
            </select>
 
             <select id="sorter">
-            
+                <option value="Newest">Newest</option>
+                <option value="Oldest">Oldest</option>
+                <option value="Performance High">Performance High</option>
+                <option value="Performance Low">Performance Low</option>
+                <option value="Attacks A-Z">Attack A - Z</option>
+                <option value="Attacks Z-A">Attacks Z - A</option>
+                <option value="Stored to Local - Failed">Stored - Failed</option>
+                <option value="Failed - Stored to Local">Failed - Stored</option>
            </select>
-         -->
+          
+             <button class="btn-primary" onclick="updatedLogs()">Apply</button>
+           <!--End of Noah -->
 
            <!-- Logs Panel -->
            <div class="logs-panel">
@@ -386,7 +407,7 @@
                            <th>Action</th>
                        </tr>
                    </thead>
-                   <tbody>
+                   <tbody id="logsContainer">
                        {% for log in logs %}
                        <tr id="attack-{{ log.id }}">
                            <td><strong>{{ log.attack_type }}</strong></td>
@@ -527,6 +548,76 @@
                console.error('Error:', error);
            });
        }
+       //Noah
+        function updatedLogs(){
+            const attackType = document.getElementById("attack_type").value
+            const status = document.getElementById("status").value
+            const performance = document.getElementById("performance").value
+            const sorter = document.getElementById("sorter").value
+
+            search = new URLSearchParams({attack_type: attackType, status: status,
+                performance: performance, sorter: sorter})
+            
+            fetch(`/attack_logs/filter?${search.toString()}`,
+            {
+                method: 'GET'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success){filterLogs(data.attacks);}})
+            .catch(error => {
+               showNotification('Error updating logs', 'error');
+               console.error('Error:', error);
+            });
+        }
+
+        function filterLogs(attacks){
+            const tbody = document.getElementById("logsContainer")
+            tbody.innerHTML = ''
+
+            if (attacks.length == 0){
+                tbody.innerHTML = "<tr><td>No Attack Reports Found</td></tr>";
+                return;
+            }
+            for (let i = 0; i < attacks.length; i++)
+            {
+                attack = attacks[i]
+                var row = "<tr id='attack-" + attack.id +"'>"
+                row += "<td><strong>" + attack.attack_type + "</strong></td>"
+                row += "<td>" + attack.time + "</td>"
+                
+                var currStatus = "";
+                if (attack.status == "Completed"){
+                    currStatus = "status-completed";
+                }
+                else if (attack.status == "In Progress"){
+                    currStatus = "status-in-progress";
+                }
+                else if (attack.status == "Failed"){
+                    currStatus = "status-failed";
+                }
+                else{
+                    currStatus = "status-stored";
+                }
+
+                row += "<td><span class='status-badge " + currStatus + "'>" + attack.status + "</span></td>"
+                row += "<td>" + attack.performance + "</td>"
+
+                if (attack.report_available)
+                {
+                    row += "<td><a href='" + attack.report_url +"'target='_blank' class='report-link'>View Report</a></td>";
+                }
+                else {
+                    row += "<td><span style='color: var(--muted);'>N/A</span></td>";
+                }
+            
+
+                row += "<td><button class=\"delete-btn\" onclick=\"deleteAttack('" + attack.id + "')\">Delete</button></td>";
+                row += "</tr>";
+                tbody.innerHTML += row;
+            }
+        }
+        //End of Noah
    </script>
 </body>
 </html>
