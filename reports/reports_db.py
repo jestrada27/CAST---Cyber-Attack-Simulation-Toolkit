@@ -14,7 +14,7 @@ report_collection = database_name['reports']
 
 
 # Attack types and statuses
-attack_types = ["SQL Injection", "DDoS", "XSS", "Brute Force"]
+attack_types = ["SQL Injection", "DNS", "XSS", "Brute Force", "Replay"]
 statuses = ["Stored to Local", "In Progress", "Completed", "Failed"]
 
 
@@ -24,7 +24,7 @@ def generate_random_attack(user_id):
        "attack_type": random.choice(attack_types),
        "timestamp": datetime.utcnow(),  # Store as datetime object
        "status": random.choice(statuses),
-       "performance": random.randint(45, 98),  # Store as integer
+       "performance": random.randint(0, 100),  # Store as integer
        "report_available": True,
        "report_url": "https://example.com/whitepaper.pdf"  # NEW: Default whitepaper link
    }
@@ -42,6 +42,8 @@ def get_all_logs(user_id):
    # Query MongoDB for attacks belonging to this user
    # Sort by timestamp descending (newest first)
    attacks = list(collection_attacks.find({"user_id": ObjectId(user_id)}).sort("timestamp", -1))
+   #attacks = list(collection_attacks.find({"user_id": user_id}).sort("timestamp", -1))
+  
   
    # Format for display
    formatted_attacks = []
@@ -195,10 +197,10 @@ def get_filtered_logs(
    elif sorter == "Attacks Z-A":
       sorting_by = "attack_type"
       base_sort = -1
-   elif sorter == "Stored - Failed":
+   elif sorter == "Stored to Local - Failed":
       sorting_by = "status"
       base_sort = 1
-   elif sorter == "Failed - Stored":
+   elif sorter == "Failed - Stored to Local":
       sorting_by = "status"
       base_sort = -1
    else:
