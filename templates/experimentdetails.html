@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>experimentdetail</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <div class="layout" id="layout">
+    <aside class="left-sidebar">
+      <!-- navigation section -->
+      <section class="section">
+        <h3>home</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('main_dashboard') }}">dashboard</a>
+          <!-- link to create new experiment -->
+          <a class="item" href="{{ url_for('experiment_builder') }}">new experiment</a>
+          <a class="item" href="{{ url_for('profile') }}">profile</a>
+        </div>
+      </section>
+
+      <!-- user profile notch at bottom-left -->
+      <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
+        <div class="user-avatar">m</div>
+        <div class="user-meta">
+          <!-- username pulled from session -->
+          <div class="user-name">{{ session['user'] }}</div>
+          <div class="user-role">student</div>
+        </div>
+      </a>
+    </aside>
+
+    <main class="main">
+      <!-- top bar with experiment title + status -->
+      <header class="topbar">
+        <div>
+          <h1>experiment detail</h1>
+          <p class="sub">id: {{ exp._id }}</p>
+        </div>
+        <div class="pill">{{ exp.status }}</div>
+      </header>
+
+      <div class="panel" style="margin-top:16px;">
+        <!-- display experiment metadata -->
+        <p><b>target:</b> {{ target_name }}</p>
+        <p><b>module:</b> {{ exp.module_id }}</p>
+        <p><b>attempts:</b> {{ exp.attempts }}</p>
+        <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
+        <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
+
+        <!-- action buttons -->
+        <div style="margin-top:14px; display:flex; gap:10px;">
+          <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">dashboard</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder') }}">create another</a>
+        </div>
+      </div>
+    </main>
+
+    <aside class="right-sidebar" id="rightSidebar">
+      <section class="section" style="height:100%">
+        <h3>actions</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('logout') }}">logout</a>
+        </div>
+      </section>
+    </aside>
+  </div>
+</body>
+</html>
+

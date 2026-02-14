@@ -1,5 +1,7 @@
 from flask import Flask, request, session, redirect, render_template, flash, url_for
 from pymongo import MongoClient
+from bson.objectid import ObjectId
+from datetime import datetime
 import os
 import bcrypt
 from dotenv import load_dotenv
@@ -11,6 +13,8 @@ dbclient = MongoClient(connection, tlsAllowInvalidCertificates=True)
 
 database_name = dbclient["CAST"]
 collection_users = database_name["users"]
+collection_targets = database_name["targets"]
+collection_experiments = database_name["experiments"]
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRETKEY')
@@ -211,6 +215,125 @@ def main_dashboard():
 
     username = session["user"]
     return render_template('maindashboard.html', username=username)
+
+#experiment builder
+@app.route("/experiment_builder", methods=["GET", "POST"])
+def experiment_builder():
+    res = ensure_user_logged_in()
+    if res is not None:
+        return res
+
+    username = session["user"]
+    experiments = list(
+    collection_experiments
+      .find({"owner": username}, {"module_id": 1, "status": 1, "created_at": 1})
+      .sort("created_at", -1)
+      .limit(8)
+)
+
+
+    # Load targets
+    targets = list(collection_targets.find({"owner": username}, {"name": 1}))
+
+    # Module list
+    modules = [
+        {"id": "brute force", "name": "Brute Force (Controlled)"},
+        {"id": "xss", "name": "XSS (Safe Test)"},
+        {"id": "sqli", "name": "SQL Injection (Safe Probe)"},
+        {"id": "replay", "name": "Replay (Simulated)"},
+        {"id": "dns", "name": "DNS Tunneling (Lab Simulation)"},
+    ]
+
+    if request.method == "POST":
+        target_id = request.form.get("target_id")
+        module_id = request.form.get("module_id")
+        attempts = int(request.form.get("attempts", "5"))
+        rate_limit = float(request.form.get("rate_limit", "1.0"))
+        dry_run = request.form.get("dry_run") == "on"
+
+        if not target_id or not module_id:
+            flash("Please select a target and a module.", "danger")
+            return render_template(
+                "experimentbuilder.html",
+                username=username,
+                targets=targets,
+                modules=modules
+            )
+
+        exp_doc = {
+            "owner": username,
+            "target_id": ObjectId(target_id),
+            "module_id": module_id,
+            "attempts": attempts,
+            "rate_limit": rate_limit,
+            "dry_run": dry_run,
+            "status": "Queued",
+            "created_at": datetime.utcnow()
+        }
+
+        inserted = collection_experiments.insert_one(exp_doc)
+        flash("Experiment created!", "success")
+        return redirect(url_for("experimentdetails", experiment_id=str(inserted.inserted_id)))
+
+    return render_template(
+        "experimentbuilder.html",
+        username=username,
+        targets=targets,
+        modules=modules
+    )
+
+@app.route("/targets", methods=["GET", "POST"])
+def targets():
+    res = ensure_user_logged_in()
+    if res is not None:
+        return res
+
+    username = session["user"]
+
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        ip_or_url = (request.form.get("ip_or_url") or "").strip()
+
+        if not name or not ip_or_url:
+            flash("name and ip_or_url are required.", "danger")
+            return redirect(url_for("targets"))
+
+        # per-user uniqueness (same owner can't create same name twice)
+        if collection_targets.find_one({"owner": username, "name": name}):
+            flash("target name already exists for your account.", "danger")
+            return redirect(url_for("targets"))
+
+        collection_targets.insert_one({
+            "owner": username,
+            "name": name,
+            "ip_or_url": ip_or_url,
+            "consent_status": "pending",
+            "created_at": datetime.utcnow()
+        })
+
+        flash("target added!", "success")
+        return redirect(url_for("targets"))
+
+    targets_list = list(collection_targets.find({"owner": username}).sort("created_at", -1))
+    return render_template("targets.html", username=username, targets=targets_list)
+
+@app.route("/experimentdetails/<experiment_id>")
+def experimentdetails(experiment_id):
+    res = ensure_user_logged_in()
+    if res is not None:
+        return res
+
+    exp = collection_experiments.find_one({"_id": ObjectId(experiment_id)})
+    if not exp:
+        flash("experiment not found", "danger")
+        return redirect(url_for("main_dashboard"))
+
+    target = collection_targets.find_one({"_id": exp["target_id"]}, {"name": 1})
+    target_name = target["name"] if target else "unknowntarget"
+
+    return render_template("experimentdetails.html", exp=exp, target_name=target_name)
+
+
 
 #profile
 @app.route('/profile')

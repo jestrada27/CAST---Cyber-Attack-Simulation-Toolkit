@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>experimentbuilder</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <div class="layout" id="layout">
+    <!-- LEFT SIDEBAR -->
+    <aside class="left-sidebar">
+      <section class="section">
+        <h3>Home</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="item" href="{{ url_for('profile') }}">profile</a>
+        </div>
+      </section>
+
+      <!-- Experiments section -->
+      <section class="section">
+        <h3>Experiments</h3>
+        <div class="button-group">
+          <a class="item is-selected" href="{{ url_for('experiment_builder') }}">New Experiment</a>
+        </div>
+      </section>
+
+      <!-- bottom-left user notch -->
+      <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
+        <div class="user-avatar">m</div>
+        <div class="user-meta">
+          <div class="user-name">{{ username }}</div>
+          <div class="user-role">student</div>
+        </div>
+      </a>
+    </aside>
+
+    <!-- Top bar with title + back button -->
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Experiment Builder</h1>
+          <p class="sub">configure a safe test run</p>
+        </div>
+        <a class="btn-primary" href="{{ url_for('main_dashboard') }}">back</a>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div style="margin-top:12px;">
+            {% for cat, msg in messages %}
+              <div class="tag {% if cat=='success' %}ok{% endif %}" style="margin-right:8px;">{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <div class="panel" style="margin-top:16px;">
+        <form method="post" class="form-grid">
+
+          <label class="field">
+            <span>target</span>
+            <select name="target_id" required>
+              <option value="">select target</option>
+              {% for t in targets %}
+                <option value="{{ t._id }}">{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <!-- Module dropdown -->
+
+          <label class="field">
+            <span>module</span>
+            <select name="module_id" required>
+              <option value="">select module</option>
+              {% for m in modules %}
+                <option value="{{ m.id }}">{{ m.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="field">
+            <span>attempts</span>
+            <input type="number" name="attempts" value="5" min="1" max="50">
+          </label>
+
+          <label class="field">
+            <span>rate_limit</span>
+            <input type="number" name="rate_limit" value="1.0" step="0.1" min="0.1" max="10">
+          </label>
+
+          <label class="field checkbox">
+            <input type="checkbox" name="dry_run" checked>
+            <span>Dry Run</span>
+          </label>
+
+          <div class="actions">
+            <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">cancel</a>
+            <button class="btn-primary" type="submit">create</button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

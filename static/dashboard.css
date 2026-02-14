@@ -10,6 +10,49 @@
   --border: rgba(255,255,255,.08);
 }
 
+.btn-primary{
+  display:inline-block;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid rgba(110,168,254,.25);
+  background:rgba(110,168,254,.16);
+  color:var(--text);
+  text-decoration:none;
+  font-weight:700;
+}
+.btn-primary:hover{ background:rgba(110,168,254,.22); }
+
+.left-sidebar{
+  width:240px;
+  padding:18px;
+  border-right:1px solid var(--border);
+  background: rgba(10,16,30,.6);
+  backdrop-filter: blur(8px);
+}
+
+.right-sidebar{
+  width:240px;
+  padding:18px;
+  border-left:1px solid var(--border);
+  background: rgba(10,16,30,.6);
+  backdrop-filter: blur(8px);
+}
+
+.section h3{ margin: 10px 0; color: var(--muted); font-size: 14px; }
+.item{
+  width:100%;
+  text-align:left;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.item:hover{ border-color: var(--border); color: var(--text); }
+.scroll{ max-height: 320px; overflow:auto; }
+.button-group{ display:flex; flex-direction:column; gap:8px; }
+
+
 *{box-sizing:border-box}
 body{
   margin:0;
@@ -357,3 +400,46 @@ h1{margin:0 0 4px 0; font-size:28px}
   pointer-events: auto;
   box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
+
+.form-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+.field{display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:13px;}
+.field span{color:var(--muted)}
+.field input, .field select{
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  outline:none;
+}
+.field input:focus, .field select:focus{ border-color: rgba(110,168,254,.35); }
+
+.checkbox{grid-column: 1 / -1; flex-direction:row; align-items:center; gap:10px;}
+.actions{grid-column: 1 / -1; display:flex; justify-content:flex-end; gap:10px; margin-top:4px;}
+.btn-secondary{
+  display:inline-block;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  text-decoration:none;
+  font-weight:700;
+}
+.btn-secondary:hover{ background: rgba(255,255,255,.06); }
+
+.button-group a{
+  display:inline-block;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid rgba(110,168,254,.25);
+  background:rgba(110,168,254,.16);
+  color:var(--text);
+  text-decoration:none;
+  font-weight:700;
+}
+.button-group a:hover{ background:rgba(110,168,254,.22); }

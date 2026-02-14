@@ -60,6 +60,12 @@
           <h1>Dashboard</h1>
           <p class="sub">Welcome, {{username}}</p>
         </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+          <a class="item" href="{{ url_for('experiment_builder') }}">new experiment</a>
+          <a class="item" href="{{ url_for('targets') }}">manage targets</a>
+        </div>
+
         <div class="pill">Offline mode</div>
       </header>
 
