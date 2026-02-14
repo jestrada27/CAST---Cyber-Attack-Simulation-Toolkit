@@ -1,7 +1,7 @@
 from flask import Blueprint, request, session, jsonify, Flask, redirect, render_template, flash, url_for
 #from reporting import getReportsForUser, serialize
 from .reports_db import (getReportsForUser, get_filtered_logs, serialize_attack_log, get_all_logs, get_attack_stats, delete_attack as db_delete, 
-                        clear_all_attacks as db_clear, update_report_url, serialize)
+                        clear_all_attacks as db_clear, update_report_url, serialize,generate_random_attack)
 #reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
 reports_bp = Blueprint("reports", __name__)
 
@@ -75,14 +75,15 @@ def clear_all_route():
 
 
 @reports_bp.route("/database")
-def database_reports_page():
+def database_page():
    if "user_id" not in session:
        return {"success": False, "message": "Not logged in"}, 401
    
    user_id = session["user_id"]
    logs = get_all_logs(user_id)
+   stats = get_attack_stats(user_id)
 
-   return render_template("database.html", logs=logs, username=session["username"])
+   return render_template("database.html", logs=logs, stats=stats, username=session["username"])
 
 
 @reports_bp.route("/attack_logs/filter", methods=["GET"])
@@ -101,3 +102,14 @@ def filter_attack_log():
       performance=performance, sorter=sorter)
 
    return jsonify({"success": True, "attacks": filtered_logs})
+
+
+@reports_bp.route("/simulate_attack", methods=["POST"])
+def simulate_attack():
+
+    if "user_id" not in session:
+        return jsonify({"success": False}), 401
+
+    generate_random_attack(session["user_id"])
+
+    return jsonify({"success": True})
