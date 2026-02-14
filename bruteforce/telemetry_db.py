@@ -20,12 +20,13 @@ def get_collection():
     Uses the same MONGODB_URI you already use in app.py.
     """
     global _client, _collection
+    # If already initialized, reuse the cached collection
     if _collection is not None:
         return _collection
 
     if not MONGODB_URI:
         raise RuntimeError("MONGODB_URI is not set. Add it to your .env file.")
-
+    # Connect to MongoDB and get the collection
     _client = MongoClient(MONGODB_URI, tlsAllowInvalidCertificates=True)
     db = _client[DB_NAME]
     _collection = db[COLLECTION_NAME]
@@ -40,7 +41,7 @@ def init_db():
     col.create_index("run_id")
     col.create_index("timestamp")
 
-
+#Insert a single telemetry event into MongoDB.
 def insert_event(run_id, username, password, remote_ip, status, http_code, message, target_url=None):
     col = get_collection()
     col.insert_one({
@@ -57,6 +58,7 @@ def insert_event(run_id, username, password, remote_ip, status, http_code, messa
 
 
 def fetch_events(run_id):
+    #Fetch all telemetry events for a given run_id.
     """
     Fetch events for a run, ordered oldest -> newest.
     """

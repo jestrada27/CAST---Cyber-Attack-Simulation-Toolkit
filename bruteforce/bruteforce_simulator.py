@@ -51,6 +51,7 @@ def load_credentials_from_file(path: str):
             line = raw.strip()
             if not line or line.startswith("#"):
                 continue
+            # Skip malformed lines
             if ":" not in line:
                 continue
             user, pwlist = line.split(":", 1)
@@ -69,6 +70,7 @@ def attempt_login(session: requests.Session, url: str, username: str, password: 
     remote_ip = "127.0.0.1"  # simulator-origin placeholder
 
     if dry_run:
+        # Log a simulated attempt without sending a request
         insert_event(
             run_id, username, password, remote_ip,
             status="dry_run", http_code=0,
@@ -79,6 +81,7 @@ def attempt_login(session: requests.Session, url: str, username: str, password: 
 
     try:
         resp = session.post(url, json={"username": username, "password": password}, timeout=5)
+        # Try to parse JSON response
         try:
             j = resp.json()
             status = j.get("status", "unknown")
@@ -87,6 +90,7 @@ def attempt_login(session: requests.Session, url: str, username: str, password: 
             status = "http"
             msg = (resp.text or "")[:200]
 
+        # Log the result
         insert_event(
             run_id, username, password, remote_ip,
             status=status, http_code=resp.status_code,
@@ -96,6 +100,7 @@ def attempt_login(session: requests.Session, url: str, username: str, password: 
         return {"username": username, "status": status, "code": resp.status_code}
 
     except Exception as e:
+        # Log unexpected exceptions (timeouts, connection errors, etc.)
         insert_event(
             run_id, username, password, remote_ip,
             status="error", http_code=0,
@@ -114,6 +119,8 @@ def run_simulation(
     dry_run: bool = False,
     delay_between_attempts: float = 0.05
 ):
+   
+
     if not is_safe_target(target_url):
         raise RuntimeError(
             "Target not allowed. For safety, only localhost is allowed unless CAST_BF_ALLOW_EXTERNAL=true."
@@ -125,12 +132,14 @@ def run_simulation(
     with ThreadPoolExecutor(max_workers=concurrency) as exe:
         with requests.Session() as session:
             futures = []
+            # Schedule all login attempts
             for username, passwords in creds.items():
                 for attempt_idx in range(attempts_per_user):
                     pwd = passwords[attempt_idx % len(passwords)]
                     futures.append(exe.submit(attempt_login, session, target_url, username, pwd, run_id, dry_run))
                     time.sleep(delay_between_attempts)
 
+# Collect results as they complete
             for fut in as_completed(futures):
                 results.append(fut.result())
 
