@@ -169,17 +169,18 @@ def changePrivilegeForUser(admin, user_id, newPrivelige, group_id, admin_key):
                                                    {"$set": {"groups.$.role": newPrivelige}}).modified_count
     return privilege_change == 1
 
+
 #function to invite users
-def inviteUserToServer(admin, group_id, admin_key):
+def inviteUserToServer(admin, group_id, admin_key, invited_user):
 #response status: Invites a user to a server. admins invite people to servers.
     #checks for admin
     if not admin_check(admin, group_id, admin_key):
-        return False, None
+        return False
     #invites user and returns invite
-    invite = secrets.token_urlsafe(16)
+    #invite = secrets.token_urlsafe(16)
     #group_id = object_id(group_id)
-    groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": invite}})
-    return True, invite
+    groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": ObjectId(invited_user)}})
+    return True
 
 
 #function to ban a user from a server so they arent in it anymore
@@ -233,19 +234,22 @@ def addUserToServer(user_id, group_id):
 
 #function that the user uses to join based on an invite
 #uses addUserToServer to have the user join based on the invite
-def userJoinServer(user_id, invite):
-    group_invite = groups_collection.find_one({"invites": invite})
-    if not group_invite:
+def userJoinServer(user_id, group_id):#invite):
+    group_id = object_id(group_id)
+    user_id = object_id(user_id)
+    group_check = find_group(group_id)
+    if not group_check:
         return False, None
-    
-    if object_id(user_id) in group_invite.get("banned", []):
+    if user_id not in group_check.get("invites", []):
+        return False, None
+    if user_id in group_check.get("banned", []):
         return False, None
     #group_id = object_id(group_id)
-    groups_collection.update_one({"_id": group_invite["_id"]}, {"$pull": {"invites": invite}})
+    groups_collection.update_one({"_id": group_id}, {"$pull": {"invites": user_id}})
 
-    added_conf, user_key = addUserToServer(user_id, group_invite["_id"])
+    joined, user_key = addUserToServer(user_id, group_id)
 
-    if not added_conf:
+    if not joined:
         return False, None
     return True, user_key
 
