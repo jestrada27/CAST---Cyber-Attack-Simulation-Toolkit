@@ -343,6 +343,8 @@
            </div>
 
             <!-- Done by Noah -->
+            <!-- HTML dropdowns for the user to choose the specific filters and sort by that they want -->
+             <!-- Filter by the attack, status, performannce. Sort by new to old, different attacks, performance, etc... -->
            <select id="attack_type" name="attack_type">
                 <option value="All">Attacks</option>
                 <option value="Brute Force">Brute Force</option>
@@ -376,7 +378,7 @@
                 <option value="Stored to Local - Failed">Stored - Failed</option>
                 <option value="Failed - Stored to Local">Failed - Stored</option>
            </select>
-          
+             <!--Button to update the logs once all of the filters are clicked-->
              <button class="btn-primary" onclick="updatedLogs()">Apply</button>
            <!--End of Noah -->
 
@@ -549,12 +551,14 @@
            });
        }
        //Noah
+       //Update function to get the get the attackType, status, performance, and sorting options
+       //updates the logs based on what was chosen to filter and sort by
         function updatedLogs(){
             const attackType = document.getElementById("attack_type").value
             const status = document.getElementById("status").value
             const performance = document.getElementById("performance").value
             const sorter = document.getElementById("sorter").value
-
+            //used for querying based on these filtering and sorting options and the fetch uses the route to filter and search
             search = new URLSearchParams({attack_type: attackType, status: status,
                 performance: performance, sorter: sorter})
             
@@ -562,6 +566,7 @@
             {
                 method: 'GET'
             })
+            //call the function to filter the logs and change them 
             .then(response => response.json())
             .then(data => {
                 if (data.success){filterLogs(data.attacks);}})
@@ -570,7 +575,7 @@
                console.error('Error:', error);
             });
         }
-
+        //Function that filters and changes the table 
         function filterLogs(attacks){
             const tbody = document.getElementById("logsContainer")
             tbody.innerHTML = ''
@@ -579,8 +584,11 @@
                 tbody.innerHTML = "<tr><td>No Attack Reports Found</td></tr>";
                 return;
             }
+            //Goes through all the attacks logs that the user has through the length of the attack logs
             for (let i = 0; i < attacks.length; i++)
             {
+                //updates the table based on the log filtering and sorting that are done in updatedLogs()
+                //makes rows and adds the data to the rows for the attack type, status, performance, report, and delete button
                 attack = attacks[i]
                 var row = "<tr id='attack-" + attack.id +"'>"
                 row += "<td><strong>" + attack.attack_type + "</strong></td>"
@@ -614,6 +622,7 @@
 
                 row += "<td><button class=\"delete-btn\" onclick=\"deleteAttack('" + attack.id + "')\">Delete</button></td>";
                 row += "</tr>";
+                //appends the row made into the innerHTML 
                 tbody.innerHTML += row;
             }
         }
