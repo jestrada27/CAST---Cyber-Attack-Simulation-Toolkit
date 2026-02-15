@@ -22,7 +22,8 @@ def create_user_group():
         return jsonify({"group_id": group_id, "user_key": user_key, "admin_key": admin_key})
     #returns the created group information for route
     return jsonify({"success": True, "group_id": str(group_id), "user_key": user_key, "admin_key": admin_key})
-    
+
+
 #route for getting the list of the users from the group/server
 @user_manage_bp.route("/<group_id>/group_users", methods=["GET"])
 def get_server_users(group_id):
@@ -53,7 +54,8 @@ def get_all_activity(user_id):
     all_activity = getAllActivityForUser(user_id)
     return jsonify({"activity": all_activity })
 
-#rotue that's used for changing the user's privilege 
+
+#route that's used for changing the user's privilege 
 @user_manage_bp.route("/change_privilege", methods=["POST"])
 def change_privilege():
     if "user_id" not in session:
@@ -98,14 +100,16 @@ def invite_user():
     admin = session["user_id"]
     group_id = data.get("group_id")
     admin_key = data.get("admin_key")
+    invited_user = data.get("invited_user")
 
-    if not all([group_id, admin_key]):
+    if not all([group_id, admin_key, invited_user]):
         return jsonify({"success": False, "message": "Missing fields"}), 400
     #invites the specific user to the user and returns the invite if it worked.
-    invited_user, invite = inviteUserToServer(admin, group_id, admin_key)
-    if not invited_user: 
+    invite_success = inviteUserToServer(admin, group_id, admin_key, invited_user)
+    if not invite_success: 
         return jsonify({"success": False}), 403
-    return jsonify({"success": True, "invite": invite})
+    #return jsonify({"success": True, "invite": invite})
+    return jsonify({"success": True})
 
 #route to ban a specific user from the server
 @user_manage_bp.route("/ban_user", methods=["POST"] )
@@ -160,12 +164,15 @@ def join_group():
         return jsonify({"success": False}), 400
     #username = data.get("username")
     user_id = session["user_id"]
-    invite = data.get("invite")
+    group_id = data.get("group_id")
+    if not group_id:
+          return jsonify({"success": False}), 400
+    # invite = data.get("invite")
 
-    if not invite:
-        return {"success": False, "message": "No invite"}, 400
+    # if not invite:
+    #     return {"success": False, "message": "No invite"}, 400
     #uses the function to have the user join the server based on the invite that they got. returns if they joined
-    join_check, key = userJoinServer(user_id, invite)
+    join_check, key = userJoinServer(user_id, group_id)
     if not join_check:
         return jsonify({"success": False}), 403
     return jsonify({"success": True, "user_key": key})
