@@ -6,7 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Link to external stylesheet -->
+  <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}">
   <link rel="stylesheet" href="{{ url_for('static', filename='profile.css')}}">
+  
 </head>
 
 <body>
@@ -63,7 +65,7 @@
       <aside class="profile-side">
         <section class="card-section">
           <div class="card-section-header">
-            <button id="openChangePassword" class="btn btn-primary">Change Password</button>
+            <button id="openChangePassword" class="btn btn-simple">Change Password</button>
             <span class="status-pill">Secured</span>
           </div>
 
@@ -104,7 +106,7 @@
     <h3>Verify Current Password</h3>
     <form id="currentPasswordForm">
       <input type="password" id="currentPasswordInput" placeholder="Current password" required>
-      <button type="submit" class="btn btn-primary">Verify</button>
+      <button type="submit" class="btn btn-simple">Verify</button>
       <button type="button" class="btn btn-ghost closeModal">Cancel</button>
     </form>
   </div>

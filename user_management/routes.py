@@ -19,8 +19,9 @@ def create_user_group():
     #uses the create group function to create the based on the group name and owner/creator
     group_id, user_key, admin_key = create_group(name, owner)
     if not group_id:
-        return jsonify({"group_id": group_id, "user_key": user_key, "admin_key": admin_key})
-    #returns the created group information for route
+        return {"success": False, "message": "Group id empty, create_user_group failed"}
+        #return jsonify({"group_id": group_id, "user_key": user_key, "admin_key": admin_key})
+    
     return jsonify({"success": True, "group_id": str(group_id), "user_key": user_key, "admin_key": admin_key})
 
 

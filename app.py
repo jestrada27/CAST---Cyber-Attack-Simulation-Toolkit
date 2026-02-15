@@ -420,7 +420,7 @@ def main_dashboard():
 
     #username = session["user"]
     username = session["username"]
-    return render_template('maindashboard.html', username=username)
+    return render_template('/Dashboard/maindashboard.html', username=username)
 
 #profile
 @app.route('/profile')

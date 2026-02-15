@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CAST Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
+  <style>
+    :root {
+      --sidebar-w: 260px;
+    }
+  </style>
+    <script src="{{ url_for('static', filename='Dashboard/maindashboard.js') }}" defer></script>
+  <script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <!-- Member Options Modal-->
+  <div class="modal-overlay" id="memberModalOverlay">
+    <div class="modal-dynamic modal-members" id="memberModal">
+      <h2>TODO</h2>
+      <p>Promote</p>
+      <p>Kick</p>
+      <p>See Activity</p>
+    </div>
+  </div>
+  <!-- Group modal -->
+  <div class="modal-overlay" id="groupModalOverlay">
+    <div class="modal-dynamic modal-groups" id="groupModal">
+      <h2>TODO</h2>
+      <p>Put options here</p>
+    </div>
+  </div>
+
+  <!-- Create new group modal-->
+  <div class="modal" id="createGroupModal">
+    <div class="modal-content">
+      <h3>Create new Group: Whats the name?</h3>
+      <form id="createGroupForm">
+        <input type="text" id="createGroupNameInput" placeholder="Name" required>
+        <button type="submit" id="createGroupModalCreateBtn">Create</button>
+        <button type="button" id="createGroupModalCloseBtn">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="layout" id="layout">
+    <aside class="left-sidebar">
+      <section class="section">
+        <h3>Home</h3>
+        <div>
+          <p class="item">TODO</p>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>My Groups</h3>
+        <div class="scroll">
+          <!-- Add many items to force scrolling -->
+          <div class="button-group" id="groupButtonContainer">
+            <!-- <button class="item is-selected">All</button> -->
+          </div>
+
+          <button class="item" text-align="center" id="buttonCreateGroup">Create Group</button>
+
+
+        </div>
+      </section>
+
+      <a class="user-notch" href="/profile" aria-label="Open profile">
+        <div class="user-avatar">M</div>
+        <div class="user-meta">
+          <div class="username">{{username}}</div>
+          <div class="user-role">Student</div>
+        </div>
+      </a>
+
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Dashboard</h1>
+          <p class="sub">Welcome, {{username}}</p>
+        </div>
+        <div class="pill">Offline mode</div>
+      </header>
+
+      <section class="grid cards">
+        <div class="card">
+          <div class="card-value">Active Experiments</div>
+          <div class="card-hint">Running now</div>
+        </div>
+        <div class="card">
+          <div class="card-value">Completed experiments</div>
+          <div class="card-hint">Total finished</div>
+        </div>
+        <div class="card">
+          <div class="card-value">Alerts</div>
+          <div class="card-hint">From telemetry</div>
+        </div>
+        <div class="card">
+          <div class="card-value">Targets Registered</div>
+          <div class="card-hint">Whitelisted</div>
+        </div>
+      </section>
+
+      <section class="grid panels">
+        <div class="panel">
+          <h2>Safety Status</h2>
+
+          <div class="metric">
+            <div class="metric-row">
+              <span>Consent Verified</span>
+              <span>100%</span>
+            </div>
+            <div class="progress">
+              <div class="bar" style="width:100%"></div>
+            </div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-row">
+              <span>Rate Limits Enabled</span>
+              <span>85%</span>
+            </div>
+            <div class="progress">
+              <div class="bar" style="width:85%"></div>
+            </div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-row">
+              <span>Dry-Run Default</span>
+              <span>On</span>
+            </div>
+            <div class="tag ok">Enabled</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Module Activity</h2>
+          <div class="barchart">
+            <div class="barcol" style="--h: 30%"><span>SQLi</span></div>
+            <div class="barcol" style="--h: 55%"><span>XSS</span></div>
+            <div class="barcol" style="--h: 20%"><span>Replay</span></div>
+            <div class="barcol" style="--h: 10%"><span>DNS</span></div>
+            <div class="barcol" style="--h: 10%"><span>Brute Force</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="right-sidebar" id="rightSidebar">
+
+      <button class="sidebar-toggle" id="toggleSidebar" aria-expanded="true" aria-controls="sidebar">
+        <i class="fa-solid fa-person"></i>
+      </button>
+
+      <section class="section" style="height: 100%">
+        <h3>Members</h3>
+        <div class="scroll">
+          <!-- Add many items to force scrolling -->
+          <div class="button-group" id="memberContainer">
+            <!-- <button class="item is-selected">All</button> -->
+            <button class="item">Thomas</button>
+            <button class="item">Noah</button>
+            <button class="item">Marco</button>
+            <button class="item">Mobin</button>
+            <button class="item">Jorge</button>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+
+  </div>
+</body>
+
+</html>
