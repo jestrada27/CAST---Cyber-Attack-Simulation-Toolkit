@@ -118,11 +118,8 @@ def seed_initial_attacks(user_id, count=5):
 
 
 #added - Noah
+#formats the report to look right for the ui page 
 def serialize(report):
-   # report["_id"] = str(report["_id"])
-   # report["user_id"] = str(report["user_id"])
-   # #report["experiment_id"] = str(report["experiment_id"])
-   #return report
    return {
       "_id": str(report["_id"]),
       "user_id": str(report["user_id"]),
@@ -130,7 +127,8 @@ def serialize(report):
       "report_url": report.get("report_url", "")
    }
 
-
+#function to make sure the attack log is formatted correctly when it's passed as a parameter
+#attack log information is formatted for the when it shows in db and in ui
 def serialize_attack_log(attack):
    return {
         "id": str(attack["_id"]),
@@ -144,41 +142,36 @@ def serialize_attack_log(attack):
     }
 
 
+#function to get any reports for a specific user in the reports collection
 def getReportsForUser(user_id):
    return list(report_collection.find({"user_id": ObjectId(user_id)}).sort("generated_at", -1))
    #return list(collection_attacks.find({"user_id": ObjectId(user_id)}).sort("timestamp", -1))
    
-#sorting_list = ["timestamp", "attack_type", "status", "performance"]
+
+#function to get and filter attack logs that the user has.
 def get_filtered_logs(
       user_id, attack_type, status, 
       performance, sorter="Newest"):
    
+   #gets the user id in order to be tied to that so all the attack logs the user has can be seen
+   #attack type is checked to display specific attack type chosen
    user_obj = {"user_id": ObjectId(user_id)}
    if attack_type and attack_type != "All":
       user_obj["attack_type"] = attack_type
 
-   
+   #status is checked for specific status
    if status and status != 'All':
       user_obj["status"] = status
-   # filtered_format = []
 
-   # for attack in attacks_filtered:
-   #    filtered_format.append({
-   #       "id": str(attack["_id"]),  
-   #         "attack_type": attack["attack_type"],
-   #         "time": attack["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
-   #         "status": attack["status"],
-   #         "performance": f"{attack['performance']}%",
-   #         "report_available": attack.get("report_available", True),
-   #         "report_url": attack.get("report_url", "https://example.com/whitepaper.pdf")
-   #    })
+   #performance is checked for specific performance
    if performance and performance != "All":
       if performance == "1-50":
          user_obj["performance"] = {"$gte": 1, "$lte": 50}
       elif performance == "51-100": 
          user_obj["performance"] = {"$gte": 51, "$lte": 100}
 
-   #sorting
+   #Soritng by different things. Lets the user sort the logs page based on this.
+   #sorts and orders the list of logs by the time, performance, type, or status.
    if sorter == "Newest":
       sorting_by = "timestamp"
       base_sort = -1
@@ -207,7 +200,7 @@ def get_filtered_logs(
       sorting_by = "timestamp"
       base_sort = -1
  
-   
+   #gets a list of the sorted/filtered attacks and then using the serialize function to format them correctly
    attacks_sort_filtered = list(collection_attacks.find(user_obj).sort(sorting_by, base_sort))
    #attacks_sort_filtered = list(collection_attacks.find(user).sort("timestamp", -1))
 
