@@ -52,7 +52,7 @@ def get_all_logs(user_id):
        formatted_attacks.append({
            "id": str(attack["_id"]),  # Include ID for potential use
            "attack_type": attack["attack_type"],
-           "time": attack["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
+           "time": attack["timestamp"].strftime("%Y-%m-%d_%H-%M-%S"),
            "status": attack["status"],
          #   "performance": f"{attack['performance']}%",
            "report_available": attack.get("report_available", True),
@@ -125,7 +125,7 @@ def serialize(report):
    return {
       "_id": str(report["_id"]),
       "user_id": str(report["user_id"]),
-      "generated_at": report.get("generated_at").strftime("%Y-%m-%d %H:%M:%S") if report.get("generated_at") else "",
+      "generated_at": report.get("generated_at").strftime("%Y-%m-%d_%H-%M-%S") if report.get("generated_at") else "",
       "report_url": report.get("report_url", "")
    }
 
@@ -136,7 +136,7 @@ def serialize_attack_log(attack):
         "id": str(attack["_id"]),
         "user_id": str(attack["user_id"]),
         "attack_type": attack["attack_type"],
-        "time": attack["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
+        "time": attack["timestamp"].strftime("%Y-%m-%d_%H-%M-%S"),
         "status": attack["status"],
       #   "performance": f"{attack['performance']}%",
         "report_available": attack.get("report_available", True),
@@ -234,9 +234,9 @@ def last_periodic_report(user_id):
       sort=[("generated_at", -1)])
 
 
-def periodic_json(attacks, previous_report):
+def periodic_json(attacks):
 
-   attacks_formatted = [serialize_attack_log(attack) for attack in attacks]
+   #attacks_formatted = [serialize_attack_log(attack) for attack in attacks]
    # return jsonify({
    #    "generated_at": datetime.utcnow(),
    #    "attack_amount": len(attacks_formatted),
@@ -244,13 +244,13 @@ def periodic_json(attacks, previous_report):
    # })
    periodic_json_data = {
       "generated_at": datetime.utcnow(),
-      "attack_amount": len(attacks_formatted),
-      "attacks": attacks_formatted
+      "attack_amount": len(attacks),
+      "attacks": attacks
    }
    
    
    username = session.get("username")
-   filename = f"PeriodicReport{username}.json"
+   filename = f"Periodic_Report_{username}_{periodic_json_data['generated_at'].strftime('%Y-%m-%d_%H-%M-%S')}.json" 
    json_byte_data = BytesIO(json.dumps(periodic_json_data, indent=4, default=str).encode("utf-8"))
    json_byte_data.seek(0)
 
