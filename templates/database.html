@@ -4,7 +4,7 @@
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>CAST Reports</title>
-   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+   <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
    <style>
        .reports-main {
            flex: 1;
@@ -336,10 +336,10 @@
                    <div class="stat-card-label">Failed</div>
                    <div class="stat-card-value">{{ stats.failed }}</div>
                </div>
-               <div class="stat-card">
+               <!-- <div class="stat-card">
                    <div class="stat-card-label">Avg Performance</div>
                    <div class="stat-card-value">{{ stats.avg_performance }}%</div>
-               </div>
+               </div> -->
            </div>
 
             <!-- Done by Noah -->
@@ -362,17 +362,17 @@
                 <option value="Failed">Failed</option>
            </select>
 
-            <select id="performance">
+            <!-- <select id="performance">
                 <option value="All">Performance</option>
                 <option value="1-50">1 - 50</option>
                 <option value="51-100">51 - 100</option>
-           </select>
+           </select> -->
 
             <select id="sorter">
                 <option value="Newest">Newest</option>
                 <option value="Oldest">Oldest</option>
-                <option value="Performance High">Performance High</option>
-                <option value="Performance Low">Performance Low</option>
+                <!-- <option value="Performance High">Performance High</option>
+                <option value="Performance Low">Performance Low</option> -->
                 <option value="Attacks A-Z">Attack A - Z</option>
                 <option value="Attacks Z-A">Attacks Z - A</option>
                 <option value="Stored to Local - Failed">Stored - Failed</option>
@@ -381,12 +381,18 @@
              <!--Button to update the logs once all of the filters are clicked-->
              <button class="btn-primary" onclick="updatedLogs()">Apply</button>
            <!--End of Noah -->
-
+           
            <!-- Logs Panel -->
            <div class="logs-panel">
                <div class="logs-header">
                    <h2>Attack Logs</h2>
                    <div class="action-buttons">
+                        <select id="periodicFormat">
+                            <option value="Report Type">Report Type</option>
+                            <option value="json">JSON</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                       <button type="button" class="btn btn-primary" onclick="periodicReport()">Periodic Report</button>
                        <button class="btn btn-primary" onclick="generateAttack()">
                            + Generate New Attack
                        </button>
@@ -404,7 +410,7 @@
                            <th>Attack Type</th>
                            <th>Timestamp</th>
                            <th>Status</th>
-                           <th>Performance</th>
+                           <!-- <th>Performance</th> -->
                            <th>Report</th>
                            <th>Action</th>
                        </tr>
@@ -425,11 +431,15 @@
                                    <span class="status-badge status-stored">{{ log.status }}</span>
                                {% endif %}
                            </td>
-                           <td>{{ log.performance }}</td>
+                           <!-- <td>{{ log.performance }}</td> -->
                            <td>
                                {% if log.report_available %}
+                                    <a href="/json_report/{{log.id}}" target="_blank" class="report-link">
+                                       View JSON Report
+                                   </a>
+                                |
                                    <a href="{{ log.report_url }}" target="_blank" class="report-link">
-                                       View Report
+                                       View PDF Report
                                    </a>
                                {% else %}
                                    <span style="color: var(--muted);">N/A</span>
@@ -556,11 +566,11 @@
         function updatedLogs(){
             const attackType = document.getElementById("attack_type").value
             const status = document.getElementById("status").value
-            const performance = document.getElementById("performance").value
+            // const performance = document.getElementById("performance").value
             const sorter = document.getElementById("sorter").value
             //used for querying based on these filtering and sorting options and the fetch uses the route to filter and search
             search = new URLSearchParams({attack_type: attackType, status: status,
-                performance: performance, sorter: sorter})
+                sorter: sorter})
             
             fetch(`/attack_logs/filter?${search.toString()}`,
             {
@@ -609,14 +619,18 @@
                 }
 
                 row += "<td><span class='status-badge " + currStatus + "'>" + attack.status + "</span></td>"
-                row += "<td>" + attack.performance + "</td>"
+                // row += "<td>" + attack.performance + "</td>"
 
                 if (attack.report_available)
                 {
-                    row += "<td><a href='" + attack.report_url +"'target='_blank' class='report-link'>View Report</a></td>";
+                    row += `<td><a href="/json_report/${attack.id}" target='_blank' class='report-link'>View JSON Report</a>
+                    |
+                    <a href='" + attack.report_url +"'target='_blank' class='report-link'>View PDF Report</a></td>`;
+                    
+                    
                 }
                 else {
-                    row += "<td><span style='color: var(--muted);'>N/A</span></td>";
+                    row += "<td><span style='color: var(--muted);'>Not Available</span></td>";
                 }
             
 
@@ -627,6 +641,39 @@
             }
         }
         //End of Noah
+        //Noah
+        async function periodicReport()
+        {
+            const report_type = document.getElementById("periodicFormat").value;
+            if (report_type === "Report Type")
+            {
+                alert("File type not selected.")
+                return ;
+            }
+            
+            //window.location.href = `/periodic_data?report_type=${report_type}`
+            const report_data = await fetch(`/periodic_data?report_type=${report_type}`);
+            if (!report_data.ok)
+            {
+                const report_msg = await report_data.json();
+                showNotification(report_msg.message, "error");
+                return;
+            }
+            const success_msg = `Periodic Report Download Success -  ${report_type}.`;
+
+            const blob = await report_data.blob()
+            
+            var url = window.URL.createObjectURL(blob)
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = `PeriodicReport.${report_type}`;
+            a.click();
+            window.URL.revokeObjectURL(url)
+            showNotification(success_msg, "success")
+            
+        }
+        
+            
    </script>
 </body>
 </html>
