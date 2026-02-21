@@ -124,6 +124,9 @@ from database import database_name
 report_collection = database_name['reports']
 collection_attacks = database_name["attacks"]
 from .reports_db import periodic_json, last_periodic_report, json_attack_report
+from flask import send_file
+from io import BytesIO
+import json
 
 @reports_bp.route("/periodic_data", methods=["GET"])
 def periodic_data():
@@ -183,5 +186,20 @@ def attack_json_report(attack_id):
    if not individual_attack:
       return jsonify({"success": False, "message": "JSON Report not found"}), 404
    
-   attack_serial = serialize_attack_log(individual_attack)
-   return jsonify(attack_serial)
+   #attack_serial = serialize_attack_log(individual_attack)
+   json_byte_data = BytesIO(json.dumps(individual_attack, indent=4, default=str).encode("utf-8"))
+   json_byte_data.seek(0)
+   # filename = f"{attack_serial['attack_type']}_{attack_serial['time']}_Report.json"
+   file_time = individual_attack.get("timestamp")
+   if file_time:
+      time_format = file_time.strftime('%Y-%m-%d_%H-%M-%S')
+   filename = f"{individual_attack.get('attack_type')}_{time_format}_Report"
+   #filename = f"{individual_attack.get('attack_type', 'Attack')}_{time_format}_Report"
+   return send_file(
+      json_byte_data, 
+      mimetype="application/json",
+      as_attachment=True, 
+      download_name=filename
+   )
+   #return jsonify(attack_serial)
+   #return jsonify(individual_attack)
