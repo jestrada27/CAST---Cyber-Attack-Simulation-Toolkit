@@ -2,6 +2,7 @@ from datetime import datetime
 from bson import ObjectId
 import random
 from database import database_name
+from flask import jsonify
 
 
 # Collections
@@ -24,7 +25,7 @@ def generate_random_attack(user_id):
        "attack_type": random.choice(attack_types),
        "timestamp": datetime.utcnow(),  # Store as datetime object
        "status": random.choice(statuses),
-       "performance": random.randint(0, 100),  # Store as integer
+      #  "performance": random.randint(0, 100),  # Store as integer
        "report_available": True,
        "report_url": "https://example.com/whitepaper.pdf"  # NEW: Default whitepaper link
    }
@@ -53,7 +54,7 @@ def get_all_logs(user_id):
            "attack_type": attack["attack_type"],
            "time": attack["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
            "status": attack["status"],
-           "performance": f"{attack['performance']}%",
+         #   "performance": f"{attack['performance']}%",
            "report_available": attack.get("report_available", True),
            "report_url": attack.get("report_url", "https://example.com/whitepaper.pdf")  # NEW: Include report URL
        })
@@ -73,14 +74,14 @@ def get_attack_stats(user_id):
        {"$group": {"_id": None, "avg_performance": {"$avg": "$performance"}}}
    ]
    avg_result = list(collection_attacks.aggregate(pipeline))
-   avg_performance = round(avg_result[0]["avg_performance"], 1) if avg_result else 0
+   # avg_performance = round(avg_result[0]["avg_performance"], 1) if avg_result else 0
   
    return {
        "total": total_attacks,
        "completed": completed,
        "in_progress": in_progress,
        "failed": failed,
-       "avg_performance": avg_performance
+      #  "avg_performance": avg_performance
    }
 
 
@@ -96,6 +97,7 @@ def delete_attack(attack_id, user_id):
 # Lets you delete all attacks from the log
 def clear_all_attacks(user_id):
    result = collection_attacks.delete_many({"user_id": ObjectId(user_id)})
+   delete_periodic_log = report_collection.delete_many({"user_id": ObjectId(user_id)})
    return result.deleted_count
 
 
@@ -136,7 +138,7 @@ def serialize_attack_log(attack):
         "attack_type": attack["attack_type"],
         "time": attack["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
         "status": attack["status"],
-        "performance": f"{attack['performance']}%",
+      #   "performance": f"{attack['performance']}%",
         "report_available": attack.get("report_available", True),
         "report_url": attack.get("report_url", "")
     }
@@ -151,7 +153,7 @@ def getReportsForUser(user_id):
 #function to get and filter attack logs that the user has.
 def get_filtered_logs(
       user_id, attack_type, status, 
-      performance, sorter="Newest"):
+      sorter="Newest"):
    
    #gets the user id in order to be tied to that so all the attack logs the user has can be seen
    #attack type is checked to display specific attack type chosen
@@ -164,11 +166,11 @@ def get_filtered_logs(
       user_obj["status"] = status
 
    #performance is checked for specific performance
-   if performance and performance != "All":
-      if performance == "1-50":
-         user_obj["performance"] = {"$gte": 1, "$lte": 50}
-      elif performance == "51-100": 
-         user_obj["performance"] = {"$gte": 51, "$lte": 100}
+   # if performance and performance != "All":
+   #    if performance == "1-50":
+   #       user_obj["performance"] = {"$gte": 1, "$lte": 50}
+   #    elif performance == "51-100": 
+   #       user_obj["performance"] = {"$gte": 51, "$lte": 100}
 
    #Soritng by different things. Lets the user sort the logs page based on this.
    #sorts and orders the list of logs by the time, performance, type, or status.
@@ -178,12 +180,12 @@ def get_filtered_logs(
    elif sorter == "Oldest":
       sorting_by = "timestamp"
       base_sort = 1
-   elif sorter == "Performance High":
-      sorting_by = "performance"
-      base_sort = -1
-   elif sorter == "Performance Low":
-      sorting_by = "performance"
-      base_sort = 1
+   # elif sorter == "Performance High":
+   #    sorting_by = "performance"
+   #    base_sort = -1
+   # elif sorter == "Performance Low":
+   #    sorting_by = "performance"
+   #    base_sort = 1
    elif sorter == "Attacks A-Z":
       sorting_by = "attack_type"
       base_sort = 1
@@ -205,3 +207,60 @@ def get_filtered_logs(
    #attacks_sort_filtered = list(collection_attacks.find(user).sort("timestamp", -1))
 
    return [serialize_attack_log(attack) for attack in attacks_sort_filtered]
+
+
+# def periodicReport(user_id):
+
+#    user_obj = {"user_id": ObjectId(user_id)}
+
+from flask import send_file, session
+from io import BytesIO
+import json
+
+def json_attack_report(attack_id, user_id):
+   result = collection_attacks.find_one({
+       "_id": ObjectId(attack_id),
+       "user_id": ObjectId(user_id)})
+   
+   return result
+
+
+def last_periodic_report(user_id):
+
+   #user_obj = {"user_id": ObjectId(user_id)}
+   return report_collection.find_one(
+      {"user_id": ObjectId(user_id), 
+      "report": "periodic"}, 
+      sort=[("generated_at", -1)])
+
+
+def periodic_json(attacks, previous_report):
+
+   attacks_formatted = [serialize_attack_log(attack) for attack in attacks]
+   # return jsonify({
+   #    "generated_at": datetime.utcnow(),
+   #    "attack_amount": len(attacks_formatted),
+   #    "attacks": attacks_formatted
+   # })
+   periodic_json_data = {
+      "generated_at": datetime.utcnow(),
+      "attack_amount": len(attacks_formatted),
+      "attacks": attacks_formatted
+   }
+   
+   
+   username = session.get("username")
+   filename = f"PeriodicReport{username}.json"
+   json_byte_data = BytesIO(json.dumps(periodic_json_data, indent=4, default=str).encode("utf-8"))
+   json_byte_data.seek(0)
+
+   return send_file(
+      json_byte_data, 
+      mimetype="application/json",
+      as_attachment=True, 
+      download_name=filename
+      )
+      
+# def periodic_pdf():
+#    pass
+
