@@ -2,6 +2,9 @@ from flask import Blueprint, request, session, jsonify, Flask, redirect, render_
 #from reporting import getReportsForUser, serialize
 from .reports_db import (getReportsForUser, get_filtered_logs, serialize_attack_log, get_all_logs, get_attack_stats, delete_attack as db_delete, 
                         clear_all_attacks as db_clear, update_report_url, serialize,generate_random_attack)
+from datetime import datetime
+from bson import ObjectId
+
 #reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
 reports_bp = Blueprint("reports", __name__)
 
@@ -95,13 +98,13 @@ def filter_attack_log():
    user_id = session["user_id"]
    attack_type = request.args.get("attack_type")
    status = request.args.get("status")
-   performance = request.args.get("performance")
+   #performance = request.args.get("performance")
    sorter = request.args.get("sorter", "Newest")
   
    #uses the information to filter and sort by using the function and then returning filtered logs
    filtered_logs = get_filtered_logs(
       user_id, attack_type=attack_type, status=status,
-      performance=performance, sorter=sorter)
+      sorter=sorter)
 
    return jsonify({"success": True, "attacks": filtered_logs})
 
@@ -115,3 +118,70 @@ def simulate_attack():
     generate_random_attack(session["user_id"])
 
     return jsonify({"success": True})
+
+
+from database import database_name
+report_collection = database_name['reports']
+collection_attacks = database_name["attacks"]
+from .reports_db import periodic_json, last_periodic_report, json_attack_report
+
+@reports_bp.route("/periodic_data", methods=["GET"])
+def periodic_data():
+    
+   if "user_id" not in session:
+      return jsonify({"success": False}), 401
+    
+   user_id = session["user_id"]
+   report_type = request.args.get("report_type")
+
+   # previous_report = report_collection.find_one({
+   #    "user_id": ObjectId(user_id), "type": "periodic"
+   # }, sort = [("generated_at", -1)])
+   previous_report = last_periodic_report(user_id)
+   
+   user_attacks = {"user_id": ObjectId(user_id)}
+
+   if previous_report:
+      user_attacks["timestamp"] = {"$gt": previous_report["generated_at"]}
+
+   attacks_list = list(collection_attacks.find(user_attacks))
+
+   #add if statement for checking if there is no attacks done since last report
+   if len(attacks_list) == 0:
+      return jsonify({"success": False, 
+      "message": "No attacks have been conducted for periodic report generation."}), 400
+
+   if report_type == "json":
+      file_report = periodic_json(attacks_list)
+
+   # elif report_type == "pdf":
+   #    file_report = periodic_pdf(attacks_list)
+
+   else:
+      return jsonify({"success": False, "message": "Failed to generate periodic report."})
+
+   report_collection.insert_one({
+      "user_id": ObjectId(user_id),
+      "report": "periodic",
+      "type": report_type,
+      "generated_at": datetime.utcnow(),
+      "attack_amount": len(attacks_list)
+   })
+
+   return file_report
+
+
+@reports_bp.route("/json_report/<attack_id>")
+def attack_json_report(attack_id):
+
+   if "user_id" not in session:
+      return jsonify({"success": False}), 401
+   
+   user_id = session["user_id"]
+   individual_attack = json_attack_report(attack_id, user_id)
+
+   if not individual_attack:
+      return jsonify({"success": False, "message": "JSON Report not found"}), 404
+   
+   attack_serial = serialize_attack_log(individual_attack)
+   return jsonify(attack_serial)
