@@ -434,7 +434,7 @@
                            <!-- <td>{{ log.performance }}</td> -->
                            <td>
                                {% if log.report_available %}
-                                    <a href="/json_report/{{log.id}}" target="_blank" class="report-link">
+                                    <a href="/json_report/{{log.id}}" target="_blank" class="report-link" download>
                                        View JSON Report
                                    </a>
                                 |
@@ -623,7 +623,7 @@
 
                 if (attack.report_available)
                 {
-                    row += `<td><a href="/json_report/${attack.id}" target='_blank' class='report-link'>View JSON Report</a>
+                    row += `<td><a href="/json_report/${attack.id}" target='_blank' class='report-link' download>View JSON Report</a>
                     |
                     <a href='" + attack.report_url +"'target='_blank' class='report-link'>View PDF Report</a></td>`;
                     
