@@ -321,6 +321,7 @@ h1{margin:0 0 4px 0; font-size:28px}
     white-space: nowrap;
     overflow: hidden;
     user-select: none;
+    color: white;
     }
 
     .item.is-selected{
@@ -352,7 +353,7 @@ h1{margin:0 0 4px 0; font-size:28px}
 }
 
 .modal-members{
-    background: yellow;
+    background: black;
 }
 
 .modal-create-group{
@@ -367,3 +368,17 @@ h1{margin:0 0 4px 0; font-size:28px}
 .modal-create-group.show {
   display: flex;
 }
+
+.invitation-entry {
+    padding:10px 8px;
+    margin: 10px 0px;
+    text-align: left;
+    width: 100%;
+    border-radius:6px;
+    margin-bottom:6px;
+    background: rgba(255,255,255,0.02);
+    white-space: nowrap;
+    overflow: hidden;
+    user-select: none;
+    color: white;
+    }

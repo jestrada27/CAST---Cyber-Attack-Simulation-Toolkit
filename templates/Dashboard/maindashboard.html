@@ -39,9 +39,34 @@
     <div class="modal-content">
       <h3>Create new Group: Whats the name?</h3>
       <form id="createGroupForm">
-        <input type="text" id="createGroupNameInput" placeholder="Name" required>
+        <input type="text" id="createGroupNameInput" placeholder="Name" required autocomplete="off">
         <button type="submit" id="createGroupModalCreateBtn">Create</button>
         <button type="button" id="createGroupModalCloseBtn">Cancel</button>
+      </form>
+    </div>
+  </div>
+ 
+  <!-- Invitation modal-->
+  <div class="modal" id="invitationModal">
+    <div class="modal-content">
+      <h3>Invitations</h3>
+      <div class="scroll">
+        <div class="button-group" id="invitationContainer">
+            
+        </div>
+        <button class="button" id="invatationModalCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite modal -->
+  <div class="modal" id="inviteMemberModal">
+    <div class="modal-content">
+      <h3>Invite</h3>
+      <form id="inviteMemberForm">
+        <input type="text" id="inviteMemberInput" placeholder="Name" required autocomplete="off">
+        <button type="submit" id="createGroupModalCreateBtn">Invite</button>
+        <button class="button" id="inviteModalCloseBtn">Close</button>
       </form>
     </div>
   </div>
@@ -52,6 +77,7 @@
         <h3>Home</h3>
         <div>
           <p class="item">TODO</p>
+          <button type="button" id="invitations">Invites</button>
         </div>
       </section>
 
@@ -161,15 +187,11 @@
 
       <section class="section" style="height: 100%">
         <h3>Members</h3>
+        <button class="button" id="inviteMemberBtn">Invite</button>
         <div class="scroll">
           <!-- Add many items to force scrolling -->
           <div class="button-group" id="memberContainer">
             <!-- <button class="item is-selected">All</button> -->
-            <button class="item">Thomas</button>
-            <button class="item">Noah</button>
-            <button class="item">Marco</button>
-            <button class="item">Mobin</button>
-            <button class="item">Jorge</button>
           </div>
         </div>
       </section>

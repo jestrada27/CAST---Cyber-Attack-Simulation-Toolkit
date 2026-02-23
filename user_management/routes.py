@@ -1,5 +1,5 @@
 from flask import Blueprint, request, session, jsonify
-from .user_manage import  create_group, userJoinServer, inviteUserToServer, getUserServers, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser
+from .user_manage import  create_group, userJoinServer, inviteUserToServer, getUserServers, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser, getUsersInvitations
 
 user_manage_bp = Blueprint("user_management", __name__, url_prefix="/groups")
 
@@ -95,16 +95,26 @@ def invite_user():
     #admin = data.get("admin")
     admin = session["user_id"]
     group_id = data.get("group_id")
-    admin_key = data.get("admin_key")
+    #admin_key = data.get("admin_key")
+    invited_user = data.get("invited_user_name")
 
-    if not all([group_id, admin_key]):
+    if not all([group_id, invited_user]):
         return jsonify({"success": False, "message": "Missing fields"}), 400
     
-    invited_user, invite = inviteUserToServer(admin, group_id, admin_key)
-    if not invited_user: 
+    invite_succuess = inviteUserToServer(admin, group_id, invited_user)
+    if not invite_succuess:
         return jsonify({"success": False}), 403
-    return jsonify({"success": True, "invite": invite})
+    return jsonify({"success": True})
 
+
+@user_manage_bp.route("/get_user_invites", methods=["GET"])
+def get_user_invites():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    
+    groups_were_invited_to = getUsersInvitations(session["user_id"])
+
+    return jsonify({"success": True, "groups": groups_were_invited_to})
 
 @user_manage_bp.route("/ban_user", methods=["POST"] )
 def ban_user():

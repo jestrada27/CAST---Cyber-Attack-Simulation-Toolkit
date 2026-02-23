@@ -24,6 +24,24 @@ const groupModalOverlay = document.getElementById("groupModalOverlay");
 const groupModal = document.getElementById("groupModal");
 // The container that holds the member buttons
 const memberContainer = document.querySelector("#memberContainer");
+//The button to open invitations
+const invitationButton = document.getElementById("invitations");
+// The invitation modal
+const invitationModal = document.getElementById("invitationModal");
+//The button to close the invitation modal
+const invatationModalCloseBtn = document.getElementById("invatationModalCloseBtn");
+// The invite modal, not to be confused with the invitation modal
+const inviteModal = document.getElementById("inviteMemberModal");
+// The button to open the invite member modal, not to be confused with the invitation inbox
+const inviteModalBtn = document.getElementById("inviteMemberBtn")
+// The button to close the invite member modal, not to be confused with teh invitation inbox close btn
+const inviteModalCloseBtn = document.getElementById("inviteModalCloseBtn")
+// The invite member input
+const inviteMemberInput = document.getElementById("inviteMemberInput");
+// The container for all the invites
+const invitationContainer = document.getElementById("invitationContainer")
+
+currentGroup = null;
 
 //==============================================================================================================================================================
 // Functions
@@ -38,14 +56,17 @@ function SelectNewGroup() {
 }
 
 //Creates a new group button and adds it to the list.
-function CreateButtonForGroup(groupName) {
+function CreateButtonForGroup(groupName, groupId) {
     const button = document.createElement("button");
     button.textContent = groupName;
+
     button.className = "item";
     //This will display the new page for the dashboard
     button.addEventListener("click", () => {
         //TODO: Display the stuff in the dashboard page
-        console.log("clicked");
+
+        loadMembers(groupId);
+        currentGroup = groupId;
     });
 
     //This brings up the group modal options
@@ -60,7 +81,15 @@ function CreateButtonForGroup(groupName) {
         SelectNewGroup();
     }
 }
+function CreateButtonForMember(membername) {
+    const button = document.createElement("button");
+    button.textContent = membername;
 
+    button.className = "item";
+
+    //Add the button to the container
+    document.getElementById("memberContainer").appendChild(button);
+}
 //TODO: maybe move this to a project wide js file?
 /**
  * Displays modal
@@ -125,8 +154,6 @@ async function loadUserGroups() {
 
         const data = await res.json(); // { groups: ... }
 
-        // Do stuff with it:
-        console.log("Groups:", data.groups);
         renderGroups(data.groups);
 
     } catch (e) {
@@ -136,7 +163,7 @@ async function loadUserGroups() {
 
 function renderGroups(groups) {
     for (const g of groups) {
-        CreateButtonForGroup(g.name);
+        CreateButtonForGroup(g.name, g.group_id);
     }
     return;
 }
@@ -175,15 +202,190 @@ async function createUserGroup(name) {
     }
 
     // Success
-    console.log("Created group:", data);
     // data = { success: true, group_id: "...", user_key: "...", admin_key: "..." }
     return data;
 }
+
+
+async function loadMembers(group) {
+    try {
+        const route = `/groups/${group}/group_users`
+        const res = await fetch(route, {
+            method: "GET",
+            headers: { "Accept": "application/json" },
+            // IMPORTANT if your frontend is on a different domain/port:
+            // credentials: "include",
+        });
+
+        // Handle not-logged-in (401)
+        if (res.status === 401) {
+            const err = await res.json();
+            console.log("Not logged in:", err.message);
+            // e.g. redirect:
+            // window.location.href = "/login";
+            return;
+        }
+
+        if (!res.ok) {
+            throw new Error(`Request failed: ${res.status}`);
+        }
+
+        const data = await res.json(); // { groups: ... }
+
+        renderMembers(data.users);
+
+    } catch (e) {
+        console.error("Error loading groups:", e);
+    }
+}
+
+async function loadInvitations() {
+    try {
+        const route = `/groups/get_user_invites`
+        const res = await fetch(route, {
+            method: "GET",
+            headers: { "Accept": "application/json" },
+            // IMPORTANT if your frontend is on a different domain/port:
+            // credentials: "include",
+        });
+
+        // Handle not-logged-in (401)
+        if (res.status === 401) {
+            const err = await res.json();
+            console.log("Not logged in:", err.message);
+            // e.g. redirect:
+            // window.location.href = "/login";
+            return;
+        }
+
+        if (!res.ok) {
+            throw new Error(`Request failed: ${res.status}`);
+        }
+
+        const data = await res.json(); // { groups: ... }
+
+        renderInvitations(data.groups);
+
+    } catch (e) {
+        console.error("Error loading invitations:", e);
+    }
+}
+
+async function inviteMember(groupId, adminKey, membername) {
+    const res = await fetch("/groups/invite_user", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        body: JSON.stringify({
+             group_id: groupId,
+            invited_user_name: membername
+        }),
+        // If frontend is on a different origin/port, uncomment:
+        // credentials: "include",
+    });
+
+    const data = await res.json().catch(() => ({})); // in case non-JSON error
+
+    if (res.status === 401) {
+        // Not logged in
+        console.log(data.message || "Not logged in");
+        // window.location.href = "/login";
+        return;
+    }
+
+    if (res.status === 400) {
+        // Validation error (e.g., missing name)
+        alert(data.message || "Bad request");
+        return;
+    }
+
+    if(res.status === 403){
+        alert(data.message || "Invalid username")
+        return;
+    }
+
+    if (!res.ok) {
+        console.error("Server error:", res.status, data);
+        alert("Something went wrong.");
+        return;
+    }
+
+    // Success
+    console.log("Invited member:", data);
+    // data = { success: true, group_id: "...", user_key: "...", admin_key: "..." }
+    return data;
+}
+
+function renderMembers(users) {
+    memberContainer.replaceChildren();
+    for (const u of users) {
+        CreateButtonForMember(u.username);
+    }
+    return;
+}
+
+function renderInvitations(invites){
+    invitationContainer.replaceChildren();
+    console.log(invites.length)
+    for (const inv of invites){
+        CreateInvitationEntry(inv)
+    }
+}
+
+
+//Creates a new group button and adds it to the list.
+function CreateInvitationEntry(invitation) {
+    const box = document.createElement("div");
+    box.className = "box";
+
+    const text = document.createElement("p");
+    text.textContent = `Group: ${invitation.name}`;
+
+    const button1 = document.createElement("button");
+    button1.textContent = "Accept";
+
+    const button2 = document.createElement("button");
+    button2.textContent = "Deny";
+
+    box.appendChild(text);
+    box.appendChild(button1);
+    box.appendChild(button2);
+    invitationContainer.appendChild(box)
+    
+    button1.addEventListener("click", () => {
+        //TODO:
+        console.log("Accept")
+    });
+    button2.addEventListener("click", () => {
+        //TODO:
+        console.log("Deny")
+    });
+}
+
 
 //==============================================================================================================================================================
 // Setup
 //==============================================================================================================================================================
 
+
+invatationModalCloseBtn.addEventListener("click", (e) =>{
+    invitationModal.classList.remove("show");
+});
+
+invitationButton.addEventListener("click", (e) =>{
+    invitationModal.classList.add("show");
+    loadInvitations()
+});
+
+inviteModalCloseBtn.addEventListener("click", (e) =>{
+    inviteModal.classList.remove("show")
+});
+
+inviteModalBtn.addEventListener("click", (e) =>{
+    inviteModal.classList.add("show");
+});
 
 // Group selection logic
 groupButtonContainer.addEventListener("click", (e) => {
@@ -197,6 +399,9 @@ groupButtonContainer.addEventListener("click", (e) => {
     clicked.classList.add("is-selected");
 });
 
+//TODO invitation selection logic
+
+
 //Setup close button for create group modal
 createGroupModalCloseButton.addEventListener("click", () => {
     createGroupModal.classList.remove("show");
@@ -207,12 +412,10 @@ createGroupModalCloseButton.addEventListener("click", () => {
 document.getElementById("createGroupForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const groupName = document.getElementById("createGroupNameInput").value;
-    console.log(groupName);
 
     createUserGroup(groupName)
         .then(result => {
-            CreateButtonForGroup(groupName);
-            console.log(result.group_id);
+            CreateButtonForGroup(groupName, result.group_id);
         })
         .catch(err => {
             console.error(err.message);
@@ -223,6 +426,29 @@ document.getElementById("createGroupForm").addEventListener("submit", async (e) 
     createGroupModal.classList.remove("show");
 
 });
+
+//Setup invite submit handler
+document.getElementById("inviteMemberForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const memberName = inviteMemberInput.value;
+
+    console.log(currentGroup)
+
+    inviteMember(currentGroup, null, memberName)
+        .then(result => {
+            //CreateButtonForGroup(groupName);
+            console.log(result.success);
+        })
+        .catch(err => {
+            console.error(err.message);
+        });
+
+
+    inviteMemberInput.value = "";
+    inviteModal.classList.remove("show");
+
+});
+
 
 //Setup the createGroupButton to show the create group modal
 buttonCreateGroup.addEventListener("click", (e) => {

@@ -163,16 +163,41 @@ def changePrivilegeForUser(admin, user_id, newPrivelige, group_id, admin_key):
 
 
 #def inviteUserToServer(admin, user, group_id): #response status: Invites a user to a server. As of right now, i only plan on letting admins invite people to servers.
-def inviteUserToServer(admin, group_id, admin_key):
+def inviteUserToServer(admin, group_id, invited_user_name):
 
-    if not admin_check(admin, group_id, admin_key):
-        return False, None
+    #if not admin_check(admin, group_id, admin_key):
+    #    return False
     
-    invite = secrets.token_urlsafe(16)
+    #invite = secrets.token_urlsafe(16)
     #group_id = object_id(group_id)
-    groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": invite}})
-    return True, invite
+    #groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": invite}})
 
+    userid = collection_users.find_one({"username": invited_user_name})
+    
+    if not userid:
+        return False
+
+    groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": userid}})
+    return True
+
+#Returns the groups that the user is invited to
+def getUsersInvitations(user_id):
+    
+    user_check = find_user(user_id)
+    if not user_check: return False, None
+    
+    cursor = groups_collection.find({
+        "invites": ObjectId(user_id)
+    }, {"name": 1})
+
+    groups = []
+    for g in cursor:
+        g["_id"] = str(g["_id"])               # convert ObjectId
+        # also convert anything else that might be ObjectId inside the doc
+        # e.g. g["invites"] = [str(x) for x in g.get("invites", [])]
+        groups.append(g)
+
+    return groups
 
 def banUserFromServer(admin, user_id, group_id, admin_key): #response status: Bans a user from a server. Needs an admin privilege to be able to do this. 
     if not admin_check(admin, group_id, admin_key):
