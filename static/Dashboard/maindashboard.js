@@ -292,6 +292,52 @@ async function inviteMember(groupId, adminKey, membername) {
         // Not logged in
         console.log(data.message || "Not logged in");
         // window.location.href = "/login";
+        return data;
+    }
+
+    if (res.status === 400) {
+        // Validation error (e.g., missing name)
+        alert(data.message || "Bad request");
+        return data;
+    }
+
+    if(res.status === 403){
+        alert(data.message || "Invalid username")
+        return data;
+    }
+
+    if (!res.ok) {
+        console.error("Server error:", res.status, data);
+        alert("Something went wrong.");
+        return data;
+    }
+
+    // Success
+    console.log("Invited member:", data);
+    // data = { success: true, group_id: "...", user_key: "...", admin_key: "..." }
+    return data;
+}
+
+async function joinGroup(groupId) {
+    const res = await fetch("/groups/join_group", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        body: JSON.stringify({
+             group_id: groupId
+        }),
+        // If frontend is on a different origin/port, uncomment:
+        // credentials: "include",
+    });
+
+    const data = await res.json().catch(() => ({})); // in case non-JSON error
+
+    if (res.status === 401) {
+        // Not logged in
+        console.log(data.message || "Not logged in");
+        // window.location.href = "/login";
         return;
     }
 
@@ -311,11 +357,23 @@ async function inviteMember(groupId, adminKey, membername) {
         alert("Something went wrong.");
         return;
     }
-
-    // Success
-    console.log("Invited member:", data);
-    // data = { success: true, group_id: "...", user_key: "...", admin_key: "..." }
+    // data = { success: true, ...
     return data;
+}
+
+async function denyInvite(groupId) {
+    const res = await fetch("/groups/deny_invite", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        body: JSON.stringify({
+             group_id: groupId
+        }),
+        // If frontend is on a different origin/port, uncomment:
+        // credentials: "include",
+    });
 }
 
 function renderMembers(users) {
@@ -352,15 +410,22 @@ function CreateInvitationEntry(invitation) {
     box.appendChild(text);
     box.appendChild(button1);
     box.appendChild(button2);
-    invitationContainer.appendChild(box)
+    invitationContainer.appendChild(box);
     
     button1.addEventListener("click", () => {
         //TODO:
-        console.log("Accept")
+        joinGroup(invitation._id).then(result => {
+            console.log(result.success);
+            box.remove();
+        })
+        .catch(err => {
+            console.error(err.message);
+        });
     });
     button2.addEventListener("click", () => {
         //TODO:
-        console.log("Deny")
+        denyInvite(invitation._id);
+        box.remove();
     });
 }
 
@@ -376,11 +441,12 @@ invatationModalCloseBtn.addEventListener("click", (e) =>{
 
 invitationButton.addEventListener("click", (e) =>{
     invitationModal.classList.add("show");
-    loadInvitations()
+    loadInvitations();
 });
 
 inviteModalCloseBtn.addEventListener("click", (e) =>{
-    inviteModal.classList.remove("show")
+    inviteMemberInput.value = "";
+    inviteModal.classList.remove("show");
 });
 
 inviteModalBtn.addEventListener("click", (e) =>{

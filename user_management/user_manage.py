@@ -246,23 +246,27 @@ def addUserToServer(user_id, group_id):
     return True, user_key
 
 
-def userJoinServer(user_id, invite):
-    group_invite = groups_collection.find_one({"invites": invite})
-    if not group_invite:
+def userJoinServer(user_id, group_id):
+    targetGroup = groups_collection.find_one({"_id": ObjectId(group_id),"invites": ObjectId(user_id)})
+    #in_group = collection_users.find_one({"_id": user_id, "groups.group_id": group_id})
+    if not targetGroup:
         return False, None
     
-    if object_id(user_id) in group_invite.get("banned", []):
+    if object_id(user_id) in targetGroup.get("banned", []):
         return False, None
-    #group_id = object_id(group_id)
-    groups_collection.update_one({"_id": group_invite["_id"]}, {"$pull": {"invites": invite}})
+    
+    
+    groups_collection.update_one({"_id": group_id}, {"$pull": {"invites": user_id}})
 
-    added_conf, user_key = addUserToServer(user_id, group_invite["_id"])
+    added_conf, user_key = addUserToServer(user_id, group_id)
 
     if not added_conf:
         return False, None
     return True, user_key
 
-
+def denyInvite(user_id, group_id):
+    groups_collection.update_one({"_id": group_id}, {"$pull": {"invites": user_id}})
+    
 def getUserServers(user_id):
     user_check = find_user(user_id)
 

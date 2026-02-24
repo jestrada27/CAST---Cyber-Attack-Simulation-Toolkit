@@ -168,7 +168,7 @@ def join_group():
         return jsonify({"success": False}), 400
     #username = data.get("username")
     user_id = session["user_id"]
-    invite = data.get("invite")
+    invite = data.get("group_id")
 
     if not invite:
         return {"success": False, "message": "No invite"}, 400
@@ -177,6 +177,24 @@ def join_group():
     if not join_check:
         return jsonify({"success": False}), 403
     return jsonify({"success": True, "user_key": key})
+
+@user_manage_bp.route("/deny_invite", methods=["POST"])
+def deny_invite():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False}), 400
+    user_id = session["user_id"]
+    group_id = data.get("group_id")
+
+    if not group_id:
+        return {"success": False, "message": "Missing field group_id"}, 400
+
+    denyInvite(user_id, group_id)
+    
+    return jsonify({"success": True})
 
 
 @user_manage_bp.route("/user_group", methods=["GET"])
