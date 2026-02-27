@@ -93,12 +93,46 @@ def delete_attack(attack_id, user_id):
    })
    return result.deleted_count > 0
 
+#Noah
+def delete_periodic(periodc_id, user_id):
+   result = report_collection.delete_one({
+      "_id": ObjectId(periodc_id),
+      "user_id": ObjectId(user_id)
+   })
+   return result.deleted_count > 0
+
 
 # Lets you delete all attacks from the log
 def clear_all_attacks(user_id):
    result = collection_attacks.delete_many({"user_id": ObjectId(user_id)})
-   delete_periodic_log = report_collection.delete_many({"user_id": ObjectId(user_id)})
    return result.deleted_count
+
+#Noah
+def clear_all_periodic(user_id):
+   delete_periodic_log = report_collection.delete_many({"user_id": ObjectId(user_id), "report": "periodic"})
+   return delete_periodic_log.deleted_count
+
+def get_periodic(user_id):
+
+   periodic_reports = list(report_collection.find({
+      "user_id": ObjectId(user_id), "report": "periodic"
+   }).sort("generated_at", -1))
+   periodic_json_format = []
+
+   for report in periodic_reports:
+      periodic_json_format.append({
+      "id": str(report["_id"]),
+      "start_period": report["start_period"].strftime("%Y-%m-%d_%H-%M-%S")  if report["start_period"] else "N/A",
+      "end_period": report["end_period"].strftime("%Y-%m-%d_%H-%M-%S") if report["end_period"] else "N/A",
+      # "start_period": report.get("start_period").strftime("%Y-%m-%d_%H-%M-%S"),
+      # "end_period": report.get("end_period").strftime("%Y-%m-%d_%H-%M-%S"),
+      #"generated_at": report["generated_at"].strftime("%Y-%m-%d_%H-%M-%S"),
+      "attack_amount": report.get("attack_amount", 0),
+      "type": report.get("type", "json")
+
+      })
+
+   return periodic_json_format
 
 
 # NEW: Update report URL for a specific attack
@@ -225,6 +259,14 @@ def json_attack_report(attack_id, user_id):
    return result
 
 
+def json_periodic_report(report_id, user_id):
+   result = report_collection.find_one({
+      "_id": ObjectId(report_id),
+      "user_id": ObjectId(user_id),
+      "report": "periodic"
+   })
+   return result
+
 def last_periodic_report(user_id):
 
    #user_obj = {"user_id": ObjectId(user_id)}
@@ -234,7 +276,8 @@ def last_periodic_report(user_id):
       sort=[("generated_at", -1)])
 
 
-def periodic_json(attacks):
+from collections import Counter
+def periodic_json(attacks, generated_at, start_period=None, end_period=None, report_id=None):
 
    #attacks_formatted = [serialize_attack_log(attack) for attack in attacks]
    # return jsonify({
@@ -242,14 +285,28 @@ def periodic_json(attacks):
    #    "attack_amount": len(attacks_formatted),
    #    "attacks": attacks_formatted
    # })
+   username = session.get("username")
+   attack_status_counter = Counter(attack.get("status", "unknown") for attack in attacks)
+   attack_type_counter = Counter(attack.get("attack_type", "unknown") for attack in attacks)
+
    periodic_json_data = {
-      "generated_at": datetime.utcnow(),
+      "report_id": str(report_id),
+      "generated_by": username,
+      "generated_at": generated_at,
+
+      "period": {
+         "from": start_period,
+         "to": end_period
+      },
       "attack_amount": len(attacks),
+      "attack_summary": {
+         "by_attack_status": attack_status_counter,
+         "by_attack_type": attack_type_counter
+      },
       "attacks": attacks
    }
    
-   
-   username = session.get("username")
+
    filename = f"Periodic_Report_{username}_{periodic_json_data['generated_at'].strftime('%Y-%m-%d_%H-%M-%S')}.json" 
    json_byte_data = BytesIO(json.dumps(periodic_json_data, indent=4, default=str).encode("utf-8"))
    json_byte_data.seek(0)
@@ -261,6 +318,127 @@ def periodic_json(attacks):
       download_name=filename
       )
       
-# def periodic_pdf():
-#    pass
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.graphics.charts.piecharts import Pie
+from reportlab.graphics.shapes import Drawing
+from reportlab.lib import colors
+
+def periodic_pdf(attacks, generated_at, start_period=None, end_period=None, report_id=None):
+
+   pdf_buffer = BytesIO()
+   pdf_doc = SimpleDocTemplate(pdf_buffer)
+   flowables = []
+   sample_styles = getSampleStyleSheet()
+   style_title = sample_styles['Heading1']
+   style_body = sample_styles["BodyText"]
+   style_section = sample_styles["Heading2"]
+   style_small_heading = sample_styles["Heading3"]
+   indv_part_section = sample_styles['Heading4']
+
+   title = Paragraph("Cyber Attack Simulation Toolkit Periodic Report", style_title)
+   flowables.append(title)
+   flowables.append(Spacer(1, 20))
+
+   username = session.get("username")
+   attack_status_counter = Counter(attack.get("status", "unknown") for attack in attacks)
+   attack_type_counter = Counter(attack.get("attack_type", "unknown") for attack in attacks)
+
+   #Intro
+   intro_section = Paragraph("User Information", style_section)
+   flowables.append(intro_section)
+   user_info = Paragraph(f'<b>Generated by user:</b> {username}', style_body)
+   flowables.append(user_info)
+   time_info = Paragraph(f'<b>Generated at:</b> {generated_at}',style_body)
+   flowables.append(time_info)
+   flowables.append(Spacer(1, 20))
+   if start_period:
+      start_info = Paragraph(f'<b>Start Period:</b> {start_period}', style_body)
+   else:
+      start_info = Paragraph('<b>Start Period:</b> First start period.', style_body)
+   end_info = Paragraph(f'<b>End Period:</b> {end_period}', style_body)
+   flowables.append(start_info)
+   flowables.append(end_info)
+   total_attacks = Paragraph(f'<b>Total attacks in periodic report:</b> {len(attacks)}', style_body)
+   flowables.append(total_attacks)
+   flowables.append(Spacer(1, 20))
+
+   #Summary info
+   summary_section = Paragraph("Summary Information", style_section)
+   flowables.append(summary_section)
+   
+   flowables.append(Paragraph("Status Count:", style_small_heading))
+   for i, j in attack_status_counter.items():
+      flowables.append(Paragraph(f'<b>Status:</b> {i} &emsp; <b>Count:</b> {j}', style_body))
+      
+   flowables.append(Spacer(1, 15))
+   
+   #status pie chart
+   status_pie = pie_chart(attack_status_counter)
+   flowables.append(status_pie)
+   flowables.append(Spacer(1, 15))
+
+   flowables.append(Paragraph("Attack Type Count:", style_small_heading))
+   for i, j in attack_type_counter.items():
+      flowables.append(Paragraph(f'<b>Attack type:</b> {i} &emsp; <b>Count:</b> {j}', style_body))
+
+   #attack type pie chart
+   attack_type_pie = pie_chart(attack_type_counter)
+   flowables.append(attack_type_pie)
+
+   #Attacks List info
+   flowables.append(PageBreak())
+   attacks_list_section = Paragraph("Attacks done in period: ", style_section)
+   flowables.append(attacks_list_section)
+
+   ignore_user = {"_id", "user_id"}
+
+   for index, each_attack in enumerate(attacks, start=1): 
+      flowables.append(Paragraph(f"<b>Attack #{index}</b>", indv_part_section))
+      for key, val in each_attack.items():
+         if key in ignore_user:
+            continue
+         
+         flowables.append(Paragraph(f"<b>{key}:</b> {val}", style_body))
+      flowables.append(Spacer(1, 10))
+
+   pdf_doc.build(flowables)
+
+   pdf_buffer.seek(0)
+   filename = f"Periodic_Report_{username}_{generated_at.strftime('%Y-%m-%d_%H-%M-%S')}.pdf" 
+   return send_file(
+      pdf_buffer, 
+      mimetype="application/pdf",
+      as_attachment=True, 
+      download_name=filename
+      )
+
+
+def pie_chart(attack_data):
+
+   draw = Drawing(400, 300)
+   chart = Pie()
+   chart.x = 100
+   chart.y = 50
+   chart.width = 200
+   chart.height = 200
+
+   # chart.data = list(attack_data.keys())
+   # chart.labels = list(attack_data.values())
+   labels = list(attack_data.keys())
+   data = list(attack_data.values())
+   total_num = sum(data)
+
+   chart.data = data
+   chart.labels  = [f"{label}: {val/total_num:.2%}" for label, val in zip(labels, data)]
+    
+
+   chart.sideLabels=True
+   chart.simpleLabels=True
+
+   chart.slices.strokeWidth=0.5
+   chart.slices.popout=1
+
+   draw.add(chart)
+   return draw
