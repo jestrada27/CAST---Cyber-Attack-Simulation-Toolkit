@@ -63,6 +63,8 @@
            border: 1px solid var(--border);
            border-radius: 16px;
            padding: 20px;
+           margin-bottom: 30px;
+           margin-top: 25px;
        }
 
 
@@ -79,6 +81,25 @@
            font-size: 20px;
        }
 
+       /* */
+        .periodic-reports-panel {
+           background: rgba(17,26,46,.75);
+           border: 1px solid var(--border);
+           border-radius: 16px;
+           padding: 20px;
+       }
+        .periodic-reports-header {
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           margin-bottom: 20px;
+       }
+
+
+       .periodic-reports-header h2 {
+           margin: 0;
+           font-size: 20px;
+       }
 
        .action-buttons {
            display: flex;
@@ -152,6 +173,39 @@
 
 
        .logs-table tbody tr:hover {
+           background: rgba(255,255,255,.02);
+       }
+
+    
+       .periodic-reports-table {
+           width: 100%;
+           border-collapse: collapse;
+       }
+
+
+       .periodic-reports-table thead {
+           border-bottom: 1px solid var(--border);
+       }
+
+
+       .periodic-reports-table th {
+           padding: 12px;
+           text-align: left;
+           font-weight: 600;
+           color: var(--muted);
+           font-size: 13px;
+           text-transform: uppercase;
+           letter-spacing: 0.5px;
+       }
+
+
+       .periodic-reports-table td {
+           padding: 14px 12px;
+           border-bottom: 1px solid rgba(255,255,255,.04);
+       }
+
+
+       .periodic-reports-table tbody tr:hover {
            background: rgba(255,255,255,.02);
        }
 
@@ -290,6 +344,8 @@
            background: rgba(220,38,38,.25);
            border-color: rgba(220,38,38,.35);
        }
+
+       
    </style>
 </head>
 <body>
@@ -385,14 +441,14 @@
            <!-- Logs Panel -->
            <div class="logs-panel">
                <div class="logs-header">
-                   <h2>Attack Logs</h2>
+                   <h2>Attack Logs / Reports</h2>
                    <div class="action-buttons">
-                        <select id="periodicFormat">
+                        <!-- <select id="periodicFormat">
                             <option value="Report Type">Report Type</option>
                             <option value="json">JSON</option>
                             <option value="pdf">PDF</option>
-                        </select>
-                       <button type="button" class="btn btn-primary" onclick="periodicReport()">Periodic Report</button>
+                        </select> -->
+                       <!--<button type="button" class="btn btn-primary" onclick="periodicReport()">Periodic Report</button>-->
                        <button class="btn btn-primary" onclick="generateAttack()">
                            + Generate New Attack
                        </button>
@@ -464,6 +520,65 @@
                </div>
                {% endif %}
            </div>
+           <!--Noah--> <!--Periodic Page-->
+           <div class="periodic-reports-panel">
+               <div class="periodic-reports-header">
+                   <h2>Periodic Reports</h2>
+                   <div class="action-buttons">
+                        <select id="periodicFormat">
+                            <option value="Report Type">Report Type</option>
+                            <option value="json">JSON</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                       <button type="button" class="btn btn-primary" onclick="periodicReport()">Periodic Report</button>
+                       
+                        
+                       </button>
+                       <button class="btn btn-danger" onclick="clearAllPeriodic()">
+                           Clear Periodic Reports
+                       </button>
+                   </div>
+               </div>
+
+               {% if periodic_reports %}
+               <table class="periodic-reports-table">
+                    <thread>
+                        <tr>
+                            <th>Attacks Count</th>
+                            <th>Start Period</th>
+                            <th>End Period</th>
+                            <!-- <th>Format</th> -->
+                            <th>Report</th>
+                        </tr>
+                    </thread>
+                    <tbody>
+                        {% for report in periodic_reports %}
+                        <tr id="periodic-{{ report.id }}">
+                            <td>{{ report.attack_amount }}</td>
+                            <td>{{ report.start_period }}</td>
+                            <td>{{ report.end_period }}</td>
+                            <!-- <td>{{ report.type }}</td> -->
+                            <td>
+                                <a href="/periodic_json/{{ report.id }}" class="report-link">
+                                    View JSON Periodic Report
+                                </a>
+                                |
+                                <a href="/periodic_pdf/{{ report.id }}" class="report-link">
+                                       View PDF Periodic Report
+                                </a>
+                            </td>
+                            <td>
+                                <button class="delete-btn" onclick="deletePeriodic('{{ report.id }}')">
+                                   Delete
+                               </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+               </table>
+               {% else %}
+               <p>No periodic reports yet</p>
+               {% endif %}
        </main>
 
 
@@ -538,12 +653,34 @@
            });
        }
 
+       //Noah
+       function deletePeriodic(periodic_id)
+       {
+        if (!confirm('Are you sure you want to delete this periodic report?')) {
+               return;
+           }
+        fetch(`/delete_periodic/${periodic_id}`, {
+               method: 'DELETE'
+           })
+           .then(response => response.json())
+           .then(data => {
+               showNotification('Periodic report deleted successfully!');
+               document.getElementById(`periodic-${periodic_id}`).remove();
+              
+               setTimeout(() => {
+                   location.reload();
+               }, 1000);
+           })
+           .catch(error => {
+               showNotification('Error deleting periodic report', 'error');
+               console.error('Error:', error);
+           });
+       }
 
        function clearAllAttacks() {
            if (!confirm('Are you sure you want to delete ALL attack logs? This cannot be undone.')) {
                return;
            }
-
 
            fetch('/clear_all_attacks', {
                method: 'DELETE'
@@ -560,6 +697,29 @@
                console.error('Error:', error);
            });
        }
+       //Noah
+       function clearAllPeriodic()
+       {
+        if (!confirm('Are you sure you want to delete ALL periodic reports? This cannot be undone.')) {
+               return;
+           }
+
+            fetch('/clear_all_periodic', {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                showNotification(data.message);
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            })
+            .catch(error => {
+                showNotification('Error clearing attacks', 'error');
+                console.error('Error:', error);
+            });
+       }
+
        //Noah
        //Update function to get the get the attackType, status, performance, and sorting options
        //updates the logs based on what was chosen to filter and sort by
@@ -600,11 +760,11 @@
                 //updates the table based on the log filtering and sorting that are done in updatedLogs()
                 //makes rows and adds the data to the rows for the attack type, status, performance, report, and delete button
                 attack = attacks[i]
-                var row = "<tr id='attack-" + attack.id +"'>"
+                let row = "<tr id='attack-" + attack.id +"'>"
                 row += "<td><strong>" + attack.attack_type + "</strong></td>"
                 row += "<td>" + attack.time + "</td>"
                 
-                var currStatus = "";
+                let currStatus = "";
                 if (attack.status == "Completed"){
                     currStatus = "status-completed";
                 }
@@ -652,7 +812,18 @@
             }
             
             //window.location.href = `/periodic_data?report_type=${report_type}`
-            const report_data = await fetch(`/periodic_data?report_type=${report_type}`);
+            // const report_data = await fetch(`/periodic_data?report_type=${report_type}`);
+            let report_url;
+            if (report_type === "json")
+            {
+                report_url = "/periodic_data?report_type=json"
+            }
+            else if (report_type === "pdf")
+            {
+                report_url = "/periodic_data?report_type=pdf"
+            }
+
+            const report_data = await fetch(report_url)
             if (!report_data.ok)
             {
                 const report_msg = await report_data.json();
@@ -663,13 +834,16 @@
 
             const blob = await report_data.blob()
             
-            var url = window.URL.createObjectURL(blob)
-            var a = document.createElement("a");
+            let url = window.URL.createObjectURL(blob)
+            let a = document.createElement("a");
             a.href = url;
             a.download = `PeriodicReport.${report_type}`;
             a.click();
             window.URL.revokeObjectURL(url)
             showNotification(success_msg, "success")
+            setTimeout(() => {
+                    location.reload();
+                }, 1000)
             
         }
         
