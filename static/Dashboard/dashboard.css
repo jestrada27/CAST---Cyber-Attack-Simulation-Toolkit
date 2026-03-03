@@ -382,3 +382,16 @@ h1{margin:0 0 4px 0; font-size:28px}
     user-select: none;
     color: white;
     }
+
+  .horizontal-box {
+  display: flex;
+  align-items: center;   /* vertically aligns items */
+  gap: 10px;             /* space between text and buttons */
+}
+
+.vertical-box{
+  display: flex;
+  flex-direction: column;  /* This makes children stack vertically */
+  gap: 10px;               /* Optional spacing between buttons */
+  width: 200px;
+}

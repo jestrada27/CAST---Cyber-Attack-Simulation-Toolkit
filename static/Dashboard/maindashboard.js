@@ -33,14 +33,13 @@ const invatationModalCloseBtn = document.getElementById("invatationModalCloseBtn
 // The invite modal, not to be confused with the invitation modal
 const inviteModal = document.getElementById("inviteMemberModal");
 // The button to open the invite member modal, not to be confused with the invitation inbox
-const inviteModalBtn = document.getElementById("inviteMemberBtn")
+const inviteModalBtn = document.getElementById("inviteMemberBtn");
 // The button to close the invite member modal, not to be confused with teh invitation inbox close btn
-const inviteModalCloseBtn = document.getElementById("inviteModalCloseBtn")
+const inviteModalCloseBtn = document.getElementById("inviteModalCloseBtn");
 // The invite member input
 const inviteMemberInput = document.getElementById("inviteMemberInput");
 // The container for all the invites
-const invitationContainer = document.getElementById("invitationContainer")
-
+const invitationContainer = document.getElementById("invitationContainer");
 currentGroup = null;
 
 //==============================================================================================================================================================
@@ -55,6 +54,96 @@ function SelectNewGroup() {
     }
 }
 
+
+async function IsGroupAdmin(group_id){
+    try{
+        const res = await fetch("/groups/is_admin", {
+            method: "POST",
+            headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+            body: JSON.stringify({ group_id:group_id }),
+            // IMPORTANT if your frontend is on a different domain/port:
+            // credentials: "include",
+        });
+
+        if(res.ok){
+            const data = await res.json();
+            return data.is_admin;
+        }
+
+    }catch(e){
+        console.error("Error determining admin", e);
+        return false;
+    }
+    return false;
+}
+async function deleteUserFromGroup(group_id){
+
+    try {
+        const res = await fetch("/groups/remove_user", {
+            method: "POST",
+            headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+            body: JSON.stringify({ group_id:group_id }),
+            // IMPORTANT if your frontend is on a different domain/port:
+            // credentials: "include",
+        });
+
+        // Handle not-logged-in (401)
+        if (res.status === 401) {
+            const err = await res.json();
+            console.log("Not logged in:", err.message);
+            // e.g. redirect:
+            // window.location.href = "/login";
+            return;
+        }
+
+        if (!res.ok) {
+            throw new Error(`Request failed: ${res.status}`);
+        }
+
+        const data = await res.json();
+
+    } catch (e) {
+        console.error("Error deleting user", e);
+    }
+}
+
+function DisplayGroupModal(event, groupId, groupButton){
+    groupModal.replaceChildren();
+    
+    const leaveGroupButton = document.createElement("button"); 
+    leaveGroupButton.textContent = "Leave Group";
+
+    groupModal.appendChild(leaveGroupButton);
+    
+    leaveGroupButton.addEventListener("click", () => {
+        groupButton.remove();
+        deleteUserFromGroup(groupId)
+    });
+
+    IsGroupAdmin(groupId).then(is_admin=>{
+        if(is_admin){
+            const renameGroupButton = document.createElement("button");
+            renameGroupButton.textContent = "Rename Group";
+            renameGroupButton.addEventListener("click", () => {
+                closeModalFn(groupModalOverlay);
+            });
+            groupModal.appendChild(renameGroupButton);
+
+        const deleteGroupButton = document.createElement("button");
+        deleteGroupButton.textContent = "Delete Group";
+        groupModal.appendChild(deleteGroupButton);
+        }
+        });
+    
+    DisplayModal(groupModalOverlay, groupModal, false, event);
+}
+
 //Creates a new group button and adds it to the list.
 function CreateButtonForGroup(groupName, groupId) {
     const button = document.createElement("button");
@@ -64,7 +153,14 @@ function CreateButtonForGroup(groupName, groupId) {
     //This will display the new page for the dashboard
     button.addEventListener("click", () => {
         //TODO: Display the stuff in the dashboard page
-
+        
+        IsGroupAdmin(groupId).then(is_admin=>{
+            if(is_admin){
+            inviteModalBtn.hidden = false;
+        }else{
+            inviteModalBtn.hidden = true;
+        }
+        });
         loadMembers(groupId);
         currentGroup = groupId;
     });
@@ -72,7 +168,8 @@ function CreateButtonForGroup(groupName, groupId) {
     //This brings up the group modal options
     button.addEventListener("contextmenu", (event) => {
         event.preventDefault(); // stops the browser menu
-        DisplayModal(groupModalOverlay, groupModal, false, event);
+        //DisplayModal(groupModalOverlay, groupModal, false, event);
+        DisplayGroupModal(event, groupId, button)
     });
 
     //Add the button to the container
@@ -265,7 +362,7 @@ async function loadInvitations() {
         const data = await res.json(); // { groups: ... }
 
         renderInvitations(data.groups);
-
+        console.log("loading invitations");
     } catch (e) {
         console.error("Error loading invitations:", e);
     }
@@ -388,6 +485,7 @@ function renderInvitations(invites){
     invitationContainer.replaceChildren();
     console.log(invites.length)
     for (const inv of invites){
+        console.log("Creating entry");
         CreateInvitationEntry(inv)
     }
 }

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, session, jsonify
-from .user_manage import  create_group, userJoinServer, inviteUserToServer, getUserServers, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser, getUsersInvitations
+from .user_manage import  create_group, userJoinServer, inviteUserToServer, getUserServers, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser, getUsersInvitations, denyInvite, removeUserFromGroup,isUserAdmin
 
 user_manage_bp = Blueprint("user_management", __name__, url_prefix="/groups")
 
@@ -204,3 +204,31 @@ def user_group():
     
     user_in_groups = getUserServers(session["user_id"])
     return jsonify({"groups": user_in_groups})
+
+@user_manage_bp.route("/remove_user", methods=["POST"])
+def remove_user_from_group():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False}), 400
+    group_id = data.get("group_id")
+
+    if not group_id:
+        return {"success": False, "message": "Missing field group_id"}, 400
+    removeUserFromGroup(session["user_id"], group_id)
+    return jsonify({"success": True})
+
+@user_manage_bp.route("/is_admin", methods=["POST"])
+def is_admin():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False}), 400
+
+    group_id = data.get("group_id")
+    if not group_id:
+        return {"success": False, "message": "Missing field group_id"}, 400
+    res = isUserAdmin(session["user_id"], group_id)
+    return jsonify({"is_admin":res})

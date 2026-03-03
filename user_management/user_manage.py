@@ -165,19 +165,13 @@ def changePrivilegeForUser(admin, user_id, newPrivelige, group_id, admin_key):
 #def inviteUserToServer(admin, user, group_id): #response status: Invites a user to a server. As of right now, i only plan on letting admins invite people to servers.
 def inviteUserToServer(admin, group_id, invited_user_name):
 
-    #if not admin_check(admin, group_id, admin_key):
-    #    return False
-    
-    #invite = secrets.token_urlsafe(16)
-    #group_id = object_id(group_id)
-    #groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": invite}})
-
     userid = collection_users.find_one({"username": invited_user_name})
-    
+    groupTest = groups_collection.find_one({"_id": ObjectId(group_id)})
+    if not groupTest:
+        return False
     if not userid:
         return False
-
-    groups_collection.update_one({"_id": object_id(group_id)}, {"$addToSet": {"invites": userid}})
+    groups_collection.update_one({"_id": ObjectId(group_id)}, {"$addToSet": {"invites": userid["_id"]}})
     return True
 
 #Returns the groups that the user is invited to
@@ -189,7 +183,7 @@ def getUsersInvitations(user_id):
     cursor = groups_collection.find({
         "invites": ObjectId(user_id)
     }, {"name": 1})
-
+    
     groups = []
     for g in cursor:
         g["_id"] = str(g["_id"])               # convert ObjectId
@@ -265,7 +259,7 @@ def userJoinServer(user_id, group_id):
     return True, user_key
 
 def denyInvite(user_id, group_id):
-    groups_collection.update_one({"_id": group_id}, {"$pull": {"invites": user_id}})
+    groups_collection.update_one({"_id": ObjectId(group_id)}, {"$pull": {"invites": ObjectId(user_id)}})
     
 def getUserServers(user_id):
     user_check = find_user(user_id)
@@ -280,3 +274,23 @@ def getUserServers(user_id):
             groups_list.append({"group_id": str(group["_id"]), "name": group["name"], "role": each_group["role"]})
 
     return groups_list
+
+def removeUserFromGroup(user_id, group_id):
+    #TODO if this user is the last user in the group, delete the group
+    #TODO if this user is the last admin in the group, assign a random admin
+    
+    collection_users.update_one(
+    {"_id": ObjectId(user_id)},
+    {"$pull": {"groups": {"group_id": ObjectId(group_id)}}})
+    collection_users.update_one(
+    {"_id": ObjectId(user_id)},
+    {"$pull": {"group_keys": {"group_id": ObjectId(group_id)}}})
+
+
+def isUserAdmin(user_id, group_id):
+    t = collection_users.find_one({"_id": ObjectId(user_id),"groups.group_id": ObjectId(group_id)})
+    for group in t["groups"]:
+        if group["group_id"] == ObjectId(group_id):
+            return not (group["role"] == "member")
+    
+    return False
