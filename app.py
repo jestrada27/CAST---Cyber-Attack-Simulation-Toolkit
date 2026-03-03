@@ -38,7 +38,7 @@ def good_password_check(password):
     uppercase = False
     number = False
     special_char = False
-    special_char_list = "~`! @#$%^&*()_-+={[}]|\:;\"'<,>.?/"
+    special_char_list = "~`! @#$%^&*()_-+={[}]|:;\"'<,>.?/"
     
     #checks password if it's in the charatcer range
     if len(password) < 7 or len(password) > 40:
