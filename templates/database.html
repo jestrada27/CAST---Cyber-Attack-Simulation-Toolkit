@@ -65,6 +65,9 @@
            padding: 20px;
            margin-bottom: 30px;
            margin-top: 25px;
+           display: flex;
+           flex-direction: column; 
+           max-height: 400px
        }
 
 
@@ -87,6 +90,9 @@
            border: 1px solid var(--border);
            border-radius: 16px;
            padding: 20px;
+           display: flex;
+           flex-direction: column;
+           max-height: 300px
        }
         .periodic-reports-header {
            display: flex;
@@ -209,6 +215,46 @@
            background: rgba(255,255,255,.02);
        }
 
+       .periodic_table_wrap{
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+            min-height: 0;
+       }
+
+       .periodic_table_wrap::-webkit-scrollbar{
+            width: 10px;
+            height: 10px;
+       }
+
+       .periodic_table_wrap::-webkit-scrollbar-track{
+            background: rgba(255, 255, 255, .03);
+            border-radius: 10px;
+       }
+
+       .periodic_table_wrap::-webkit-scrollbar-thumb{
+            background: rgba(110,168,254,.25);
+            border-radius: 10px;
+            border: 2px solid rgba(17,26,46,.75)
+       }    
+
+       .periodic_table_wrap::-webkit-scrollbar-thumb:hover{
+            background: rgba(110,168,254,.35);
+       }
+
+       /* .layout {
+            height: 100vh;
+            display: flex;
+        } */
+
+        .reports-main {
+            flex: 1;
+            overflow: hidden;
+
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
 
        .status-badge {
            padding: 6px 12px;
@@ -322,6 +368,32 @@
            animation: slideIn 0.3s ease;
        }
 
+        .table-container{
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+            min-height: 0;
+       }
+
+       .table-container::-webkit-scrollbar{
+            width: 10px;
+            height: 10px;
+       }
+
+       .table-container::-webkit-scrollbar-track{
+            background: rgba(255, 255, 255, .03);
+            border-radius: 10px;
+       }
+
+       .table-container::-webkit-scrollbar-thumb{
+            background: rgba(110,168,254,.25);
+            border-radius: 10px;
+            border: 2px solid rgba(17,26,46,.75)
+       }    
+
+       .table-container::-webkit-scrollbar-thumb:hover{
+            background: rgba(110,168,254,.35);
+       }
 
        @keyframes slideIn {
            from {
@@ -401,6 +473,7 @@
             <!-- Done by Noah -->
             <!-- HTML dropdowns for the user to choose the specific filters and sort by that they want -->
              <!-- Filter by the attack, status, performannce. Sort by new to old, different attacks, performance, etc... -->
+        <div class="filters_dropdowns">
            <select id="attack_type" name="attack_type">
                 <option value="All">Attacks</option>
                 <option value="Brute Force">Brute Force</option>
@@ -436,6 +509,7 @@
            </select>
              <!--Button to update the logs once all of the filters are clicked-->
              <button class="btn-primary" onclick="updatedLogs()">Apply</button>
+            </div>
            <!--End of Noah -->
            
            <!-- Logs Panel -->
@@ -460,6 +534,7 @@
 
 
                {% if logs %}
+               <div class="table-container">
                <table class="logs-table">
                    <thead>
                        <tr>
@@ -510,6 +585,7 @@
                        {% endfor %}
                    </tbody>
                </table>
+               </div>
                {% else %}
                <div class="empty-state">
                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -541,6 +617,7 @@
                </div>
 
                {% if periodic_reports %}
+               <div class="periodic_table_wrap">
                <table class="periodic-reports-table">
                     <thread>
                         <tr>
@@ -576,6 +653,7 @@
                         {% endfor %}
                     </tbody>
                </table>
+               </div>
                {% else %}
                <p>No periodic reports yet</p>
                {% endif %}
