@@ -157,18 +157,22 @@ def main():
     parser.add_argument("--delay", type=float, default=0.05, help="Delay between spawned attempts (seconds)")
     args = parser.parse_args()
 
+# Basic run metadata output
     print("RUN ID:", args.run_id)
     print("Target:", args.target)
 
+    # Safety guard: prevent accidental brute‑forcing of external hosts
     if not is_safe_target(args.target):
         print("ERROR: target is not localhost. Aborting for safety.")
         raise SystemExit(1)
 
+    # Load credential dictionary from file
     creds = load_credentials_from_file(args.creds)
     if not creds:
         print("ERROR: No valid credentials parsed from file.")
         raise SystemExit(1)
 
+    # Execute the brute‑force simulation
     results = run_simulation(
         args.target, creds,
         concurrency=args.concurrency,
@@ -185,6 +189,6 @@ def main():
 
     print("Summary:", summary)
 
-
+# Allow running this module directly
 if __name__ == "__main__":
     main()
