@@ -11,6 +11,7 @@ import time
 from bson import ObjectId
 from itsdangerous import URLSafeTimedSerializer as Serializer
 from Attacks.DNSTunnelingExperiment import run_dns_tunneling_experiment
+from Attacks.ModuleRunners import run_bruteforce_experiment, run_generic_module_simulation
 
 
 # Mongo collections used directly by this module.
@@ -470,10 +471,23 @@ def run_experiment_now(experiment):
     rate_limit = experiment.get("rate_limit", 1.0)
     dry_run = bool(experiment.get("dry_run", True))
 
-    if module_id == "dns":
-        results = run_dns_tunneling_experiment(attempts=attempts, rate_limit=rate_limit, dry_run=dry_run)
-        status = "Dry-Run Complete" if dry_run else "Completed"
-        return True, status, results, "DNS tunneling simulation finished."
+    try:
+        if module_id == "dns":
+            results = run_dns_tunneling_experiment(attempts=attempts, rate_limit=rate_limit, dry_run=dry_run)
+            status = "Dry-Run Complete" if dry_run else "Completed"
+            return True, status, results, "DNS tunneling simulation finished."
+
+        if module_id == "brute force":
+            results = run_bruteforce_experiment(attempts=attempts, rate_limit=rate_limit, dry_run=dry_run)
+            status = "Dry-Run Complete" if dry_run else "Completed"
+            return True, status, results, "Brute force simulation finished."
+
+        if module_id in {"sqli", "xss", "replay"}:
+            results = run_generic_module_simulation(module_id=module_id, attempts=attempts, rate_limit=rate_limit, dry_run=dry_run)
+            status = "Dry-Run Complete" if dry_run else "Completed"
+            return True, status, results, f"{module_id.upper()} simulation finished."
+    except Exception as error:
+        return False, "Failed", None, f"Execution failed for module '{module_id}': {error}"
 
     return False, experiment.get("status", "Queued"), None, f"Module '{module_id}' runner is not available yet."
 
@@ -641,23 +655,20 @@ def experiment_builder():
         inserted = collection_experiments.insert_one(exp_doc)
         inserted_id = inserted.inserted_id
 
-        # DNS module runs as a safe simulation immediately after creation.
-        if module_id == "dns":
-            created_exp = collection_experiments.find_one({"_id": inserted_id, "owner": username})
-            if created_exp:
-                ok, new_status, results, run_msg = run_experiment_now(created_exp)
-                if ok:
-                    collection_experiments.update_one(
-                        {"_id": inserted_id, "owner": username},
-                        {"$set": {"status": new_status, "results": results, "started_at": results["started_at"], "completed_at": results["completed_at"]}},
-                    )
-                    flash(run_msg, "success")
-                else:
-                    flash(run_msg, "warning")
+        # Run the selected module immediately when a runner is available.
+        created_exp = collection_experiments.find_one({"_id": inserted_id, "owner": username})
+        if created_exp:
+            ok, new_status, results, run_msg = run_experiment_now(created_exp)
+            if ok:
+                collection_experiments.update_one(
+                    {"_id": inserted_id, "owner": username},
+                    {"$set": {"status": new_status, "results": results, "started_at": results["started_at"], "completed_at": results["completed_at"]}},
+                )
+                flash(run_msg, "success")
             else:
-                flash("Experiment created, but execution context was not found.", "warning")
+                flash(run_msg, "warning")
         else:
-            flash("Experiment created!", "success")
+            flash("Experiment created, but execution context was not found.", "warning")
         return redirect(url_for("experimentdetails", experiment_id=str(inserted_id)))
 
     return render_template(

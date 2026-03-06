@@ -69,10 +69,10 @@
         <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
         <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
 
-        {% if exp.module_id == "dns" %}
+        {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
           <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
             <form method="post" action="{{ url_for('start_experiment', experiment_id=(exp._id|string)) }}">
-              <button class="btn-primary" type="submit">start / rerun dns simulation</button>
+              <button class="btn-primary" type="submit">start / rerun module</button>
             </form>
           </div>
         {% endif %}
@@ -85,6 +85,12 @@
             <p><b>avg detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
             <p><b>guidance:</b> {{ exp.results.guidance }}</p>
             <p><b>samples:</b> {{ exp.results.sample_count }}</p>
+            {% if exp.results.success_rate_percent is defined %}
+              <p><b>success rate:</b> {{ exp.results.success_rate_percent }}%</p>
+            {% endif %}
+            {% if exp.results.status_counts is defined %}
+              <p><b>status counts:</b> {{ exp.results.status_counts }}</p>
+            {% endif %}
           </div>
         {% endif %}
 
