@@ -232,3 +232,18 @@ def is_admin():
         return {"success": False, "message": "Missing field group_id"}, 400
     res = isUserAdmin(session["user_id"], group_id)
     return jsonify({"is_admin":res})
+
+#TODO
+@user_manage_bp.route("/is_owner", methods=["POST"])
+def is_admin():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False}), 400
+
+    group_id = data.get("group_id")
+    if not group_id:
+        return {"success": False, "message": "Missing field group_id"}, 400
+    res = isUserAdmin(session["user_id"], group_id)
+    return jsonify({"is_admin":res})
