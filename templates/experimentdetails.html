@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>experimentdetail</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
   <script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
 </head>
 
@@ -18,7 +18,25 @@
           <a class="item" href="{{ url_for('main_dashboard') }}">dashboard</a>
           <!-- link to create new experiment -->
           <a class="item" href="{{ url_for('experiment_builder') }}">new experiment</a>
+          <a class="item" href="{{ url_for('targets') }}">manage targets</a>
           <a class="item" href="{{ url_for('profile') }}">profile</a>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>saved experiments</h3>
+        <div class="scroll">
+          <div class="button-group">
+            {% if recent_experiments %}
+              {% for recent in recent_experiments %}
+                <a class="item {% if recent.id == (exp._id|string) %}is-selected{% endif %}" href="{{ url_for('experimentdetails', experiment_id=recent.id) }}">
+                  {{ recent.module_label }} | {{ recent.status }} | {{ recent.created_at_label }}
+                </a>
+              {% endfor %}
+            {% else %}
+              <p class="item">No experiments yet</p>
+            {% endif %}
+          </div>
         </div>
       </section>
 
@@ -27,7 +45,7 @@
         <div class="user-avatar">m</div>
         <div class="user-meta">
           <!-- username pulled from session -->
-          <div class="user-name">{{ session['user'] }}</div>
+          <div class="user-name">{{ username }}</div>
           <div class="user-role">student</div>
         </div>
       </a>
@@ -51,10 +69,29 @@
         <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
         <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
 
+        {% if exp.module_id == "dns" %}
+          <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
+            <form method="post" action="{{ url_for('start_experiment', experiment_id=(exp._id|string)) }}">
+              <button class="btn-primary" type="submit">start / rerun dns simulation</button>
+            </form>
+          </div>
+        {% endif %}
+
+        {% if exp.results %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Results</h2>
+            <p><b>mode:</b> {{ exp.results.mode }}</p>
+            <p><b>avg throughput:</b> {{ exp.results.avg_throughput_kbps }} kbps</p>
+            <p><b>avg detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
+            <p><b>guidance:</b> {{ exp.results.guidance }}</p>
+            <p><b>samples:</b> {{ exp.results.sample_count }}</p>
+          </div>
+        {% endif %}
+
         <!-- action buttons -->
         <div style="margin-top:14px; display:flex; gap:10px;">
           <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">dashboard</a>
-          <a class="btn-primary" href="{{ url_for('experiment_builder') }}">create another</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder', target_id=(exp.target_id|string), module_id=exp.module_id, attempts=exp.attempts, rate_limit=exp.rate_limit, dry_run=exp.dry_run) }}">reuse config</a>
         </div>
       </div>
     </main>

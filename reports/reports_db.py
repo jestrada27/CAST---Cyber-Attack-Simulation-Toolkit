@@ -319,13 +319,18 @@ def periodic_json(attacks, generated_at, start_period=None, end_period=None, rep
       )
       
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.graphics.charts.piecharts import Pie
-from reportlab.graphics.shapes import Drawing
-from reportlab.lib import colors
+try:
+   from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+   from reportlab.lib.styles import getSampleStyleSheet
+   from reportlab.graphics.charts.piecharts import Pie
+   from reportlab.graphics.shapes import Drawing
+   REPORTLAB_AVAILABLE = True
+except ModuleNotFoundError:
+   REPORTLAB_AVAILABLE = False
 
 def periodic_pdf(attacks, generated_at, start_period=None, end_period=None, report_id=None):
+   if not REPORTLAB_AVAILABLE:
+      raise RuntimeError("PDF export requires reportlab. Install with: pip install reportlab")
 
    pdf_buffer = BytesIO()
    pdf_doc = SimpleDocTemplate(pdf_buffer)

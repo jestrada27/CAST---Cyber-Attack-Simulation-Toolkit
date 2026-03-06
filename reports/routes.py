@@ -203,7 +203,10 @@ def periodic_data():
       file_report = periodic_json(attacks_list, generated_at, start_period, end_period, report_id)
 
    elif report_type == "pdf":
-      file_report = periodic_pdf(attacks_list, generated_at, start_period, end_period, report_id)
+      try:
+         file_report = periodic_pdf(attacks_list, generated_at, start_period, end_period, report_id)
+      except RuntimeError as error:
+         return jsonify({"success": False, "message": str(error)}), 503
 
    else:
       return jsonify({"success": False, "message": "Failed to generate periodic report."})
@@ -284,4 +287,7 @@ def periodic_pdf_report(report_id):
       }
    ))
 
-   return periodic_pdf(attacks_list, found_report["generated_at"], found_report.get("start_period"), found_report.get("end_period"), found_report["_id"])
+   try:
+      return periodic_pdf(attacks_list, found_report["generated_at"], found_report.get("start_period"), found_report.get("end_period"), found_report["_id"])
+   except RuntimeError as error:
+      return jsonify({"success": False, "message": str(error)}), 503

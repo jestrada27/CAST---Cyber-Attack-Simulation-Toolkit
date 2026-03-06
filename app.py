@@ -10,8 +10,10 @@ import bcrypt
 import time
 from bson import ObjectId
 from itsdangerous import URLSafeTimedSerializer as Serializer
+from Attacks.DNSTunnelingExperiment import run_dns_tunneling_experiment
 
 
+# Mongo collections used directly by this module.
 from database import database_name
 collection_users = database_name["users"]
 collection_targets = database_name["targets"]
@@ -37,6 +39,7 @@ app.register_blueprint(reports_bp)
 
 #password checking for if the password is a certain length and complexity
 def good_password_check(password):
+    """Validate password complexity and return an error string or None."""
     #len greater than 7 and less than 40, 1 lowercase, 1 uppercase, 1 number, and 1 special character ~`! @#$%^&*()_-+={[}]|\:;\"'<,>.?/ allowed 
     lowercase = False
     uppercase = False
@@ -68,6 +71,7 @@ def good_password_check(password):
 
 #token function that is used to create the token for the user to be able to reset their password.
 def reset_token(user_id):
+    """Create a time-limited password reset token for a user id."""
     #serial = Serializer(app.config['SECRETKEY'], expiration=expiration)
 #creation of the reset token using Serializer
     serial = Serializer(app.secret_key)
@@ -77,6 +81,7 @@ def reset_token(user_id):
 #function to verify the reset token and that was generated with the Serializer
 #loads and checks to see if a token for the user was created and makes sure
 def verify_token(token, max_age=1800):
+    """Decode a reset token and return user id if token is valid."""
     serial = Serializer(app.secret_key)
     try: 
         user_id = serial.loads(token, salt="password_reset", max_age=max_age)
@@ -90,6 +95,7 @@ def verify_token(token, max_age=1800):
 #if found, the user gets sent a reset token in a link to their email
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
+    """Accept user email and send reset link when the account exists."""
     if request.method == 'POST':
         email = request.form['email'].strip()
         user = collection_users.find_one({"email": email})
@@ -109,6 +115,7 @@ def forgot_password():
 #hashes the password, stores it in the db, and then takes the user back to the login page
 @app.route('/password_reset/<token>', methods=['GET', 'POST'])
 def reset_password(token):
+    """Validate reset token and allow the user to set a new password."""
     user_id = verify_token(token)
     if not user_id:
         flash("Reset link invalid.", "danger")
@@ -143,6 +150,7 @@ def reset_password(token):
 
 #function for sending the user their reset token. creates the url with a message and sends it to the user
 def send_reset(user, token):
+    """Send the password reset email containing the signed reset link."""
     #token = user_id.reset_token()
     password_reset_link = url_for('reset_password', token=token, _external=True)
     msg = Message('Password Reset Request for CAST App',   
@@ -157,6 +165,7 @@ def send_reset(user, token):
 
 @app.route('/createaccount', methods=['GET', 'POST'])
 def create_account():
+    """Create a new local account after uniqueness and password checks."""
     if request.method == 'POST':
         username = request.form['username'].strip()
         email = request.form['email'].strip()
@@ -203,6 +212,7 @@ def create_account():
 
 @app.post("/verify-password")
 def verify_password():
+    """Verify current password before sensitive profile actions."""
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
     data = request.get_json()
@@ -220,6 +230,7 @@ def verify_password():
 
 @app.post("/change-password")
 def change_password():
+    """Change the authenticated user's password."""
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
      
@@ -246,6 +257,7 @@ def change_password():
 
 @app.post("/api/change-username")
 def change_username():
+    """Update username while enforcing uniqueness and length rules."""
     #if "user" not in session:
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
@@ -287,6 +299,7 @@ def change_username():
 
 @app.post("/api/change-email")
 def change_email():
+    """Update email while enforcing uniqueness and required value."""
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
 
@@ -322,6 +335,7 @@ def change_email():
 
 @app.post("/delete-account")
 def delete_account():
+    """Delete authenticated account and clear current session."""
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
 
@@ -347,6 +361,7 @@ attempts_num = 6
 
 @app.route('/', methods=['GET', 'POST'])
 def user_login():
+    """Authenticate user credentials with lockout on repeated failures."""
 
     #set user attempt
     if 'attempt' not in session:
@@ -406,16 +421,67 @@ def user_login():
 #Checks to see if the user is logged in. If they are not, we return the redirect response. If they are logged in,
 #we return None
 def ensure_user_logged_in():
+    """Guard helper: redirect to login when session is missing."""
     #if "user" not in session:
     if "user_id" not in session:
         flash("Please log in to access the dashboard.", "error")
         return redirect(url_for('user_login'))
     return None
 
+
+def get_recent_experiments(owner_username, limit=8):
+    """Load recent experiments and attach display-friendly labels."""
+    module_names = {
+        "brute force": "Brute Force",
+        "xss": "XSS",
+        "sqli": "SQL Injection",
+        "replay": "Replay",
+        "dns": "DNS Tunneling",
+    }
+
+    experiments = list(
+        collection_experiments
+        .find({"owner": owner_username})
+        .sort("created_at", -1)
+        .limit(limit)
+    )
+
+    target_ids = [exp.get("target_id") for exp in experiments if exp.get("target_id")]
+    target_map = {
+        t["_id"]: t.get("name", "Unknown target")
+        for t in collection_targets.find({"_id": {"$in": target_ids}}, {"name": 1})
+    } if target_ids else {}
+
+    for exp in experiments:
+        exp["id"] = str(exp["_id"])
+        exp["target_name"] = target_map.get(exp.get("target_id"), "Unknown target")
+        module_id = exp.get("module_id", "")
+        exp["module_label"] = module_names.get(module_id, module_id.upper() if module_id else "Unknown Module")
+        created_at = exp.get("created_at")
+        exp["created_at_label"] = created_at.strftime("%Y-%m-%d %H:%M UTC") if isinstance(created_at, datetime) else "Unknown time"
+
+    return experiments
+
+
+def run_experiment_now(experiment):
+    """Run an experiment module handler immediately when supported."""
+    module_id = experiment.get("module_id")
+    attempts = experiment.get("attempts", 5)
+    rate_limit = experiment.get("rate_limit", 1.0)
+    dry_run = bool(experiment.get("dry_run", True))
+
+    if module_id == "dns":
+        results = run_dns_tunneling_experiment(attempts=attempts, rate_limit=rate_limit, dry_run=dry_run)
+        status = "Dry-Run Complete" if dry_run else "Completed"
+        return True, status, results, "DNS tunneling simulation finished."
+
+    return False, experiment.get("status", "Queued"), None, f"Module '{module_id}' runner is not available yet."
+
 #maindashboard
 
 @app.route('/main_dashboard')
 def main_dashboard():
+    """Render dashboard with user summary metrics and recent experiments."""
 
     #if "user" not in session:
     if "user_id" not in session:
@@ -424,23 +490,36 @@ def main_dashboard():
 
     #username = session["user"]
     username = session["username"]
-    return render_template('/Dashboard/maindashboard.html', username=username)
+    recent_experiments = get_recent_experiments(username, limit=8)
+    active_experiment_count = collection_experiments.count_documents({
+        "owner": username,
+        "status": {"$in": ["Queued", "Running"]}
+    })
+    completed_experiment_count = collection_experiments.count_documents({
+        "owner": username,
+        "status": {"$in": ["Completed", "Finished", "Success"]}
+    })
+    targets_count = collection_targets.count_documents({"owner": username})
+
+    return render_template(
+        'Dashboard/maindashboard.html',
+        username=username,
+        recent_experiments=recent_experiments,
+        active_experiment_count=active_experiment_count,
+        completed_experiment_count=completed_experiment_count,
+        targets_count=targets_count
+    )
 
 #experiment builder
 @app.route("/experiment_builder", methods=["GET", "POST"])
 def experiment_builder():
+    """Create a new experiment and optionally execute supported modules."""
     res = ensure_user_logged_in()
     if res is not None:
         return res
 
-    username = session["user"]
-    experiments = list(
-    collection_experiments
-      .find({"owner": username}, {"module_id": 1, "status": 1, "created_at": 1})
-      .sort("created_at", -1)
-      .limit(8)
-)
-
+    username = session["username"]
+    recent_experiments = get_recent_experiments(username, limit=8)
 
     # Load targets
     targets = list(collection_targets.find({"owner": username}, {"name": 1}))
@@ -454,12 +533,51 @@ def experiment_builder():
         {"id": "dns", "name": "DNS Tunneling (Lab Simulation)"},
     ]
 
+    selected_target_id = request.args.get("target_id", "")
+    selected_module_id = request.args.get("module_id", "")
+    selected_attempts = request.args.get("attempts", "5")
+    selected_rate_limit = request.args.get("rate_limit", "1.0")
+    selected_dry_run = request.args.get("dry_run", "true").lower() in ("true", "1", "on", "yes")
+
     if request.method == "POST":
         target_id = request.form.get("target_id")
         module_id = request.form.get("module_id")
-        attempts = int(request.form.get("attempts", "5"))
-        rate_limit = float(request.form.get("rate_limit", "1.0"))
+        attempts_raw = request.form.get("attempts", "5")
+        rate_limit_raw = request.form.get("rate_limit", "1.0")
         dry_run = request.form.get("dry_run") == "on"
+
+        try:
+            attempts = int(attempts_raw)
+            rate_limit = float(rate_limit_raw)
+        except (TypeError, ValueError):
+            flash("Attempts and rate limit must be valid numbers.", "danger")
+            return render_template(
+                "experimentbuilder.html",
+                username=username,
+                targets=targets,
+                modules=modules,
+                recent_experiments=recent_experiments,
+                selected_target_id=target_id or "",
+                selected_module_id=module_id or "",
+                selected_attempts=attempts_raw,
+                selected_rate_limit=rate_limit_raw,
+                selected_dry_run=dry_run
+            )
+
+        if attempts < 1 or attempts > 50 or rate_limit < 0.1 or rate_limit > 10:
+            flash("Use attempts 1-50 and rate_limit 0.1-10.", "danger")
+            return render_template(
+                "experimentbuilder.html",
+                username=username,
+                targets=targets,
+                modules=modules,
+                recent_experiments=recent_experiments,
+                selected_target_id=target_id or "",
+                selected_module_id=module_id or "",
+                selected_attempts=attempts,
+                selected_rate_limit=rate_limit,
+                selected_dry_run=dry_run
+            )
 
         if not target_id or not module_id:
             flash("Please select a target and a module.", "danger")
@@ -467,12 +585,51 @@ def experiment_builder():
                 "experimentbuilder.html",
                 username=username,
                 targets=targets,
-                modules=modules
+                modules=modules,
+                recent_experiments=recent_experiments,
+                selected_target_id=target_id or "",
+                selected_module_id=module_id or "",
+                selected_attempts=attempts,
+                selected_rate_limit=rate_limit,
+                selected_dry_run=dry_run
+            )
+
+        try:
+            target_object_id = ObjectId(target_id)
+        except Exception:
+            flash("Selected target is invalid.", "danger")
+            return render_template(
+                "experimentbuilder.html",
+                username=username,
+                targets=targets,
+                modules=modules,
+                recent_experiments=recent_experiments,
+                selected_target_id="",
+                selected_module_id=module_id,
+                selected_attempts=attempts,
+                selected_rate_limit=rate_limit,
+                selected_dry_run=dry_run
+            )
+
+        target_exists = collection_targets.find_one({"_id": target_object_id, "owner": username}, {"_id": 1})
+        if not target_exists:
+            flash("Selected target was not found for your account.", "danger")
+            return render_template(
+                "experimentbuilder.html",
+                username=username,
+                targets=targets,
+                modules=modules,
+                recent_experiments=recent_experiments,
+                selected_target_id="",
+                selected_module_id=module_id,
+                selected_attempts=attempts,
+                selected_rate_limit=rate_limit,
+                selected_dry_run=dry_run
             )
 
         exp_doc = {
             "owner": username,
-            "target_id": ObjectId(target_id),
+            "target_id": target_object_id,
             "module_id": module_id,
             "attempts": attempts,
             "rate_limit": rate_limit,
@@ -482,23 +639,48 @@ def experiment_builder():
         }
 
         inserted = collection_experiments.insert_one(exp_doc)
-        flash("Experiment created!", "success")
-        return redirect(url_for("experimentdetails", experiment_id=str(inserted.inserted_id)))
+        inserted_id = inserted.inserted_id
+
+        # DNS module runs as a safe simulation immediately after creation.
+        if module_id == "dns":
+            created_exp = collection_experiments.find_one({"_id": inserted_id, "owner": username})
+            if created_exp:
+                ok, new_status, results, run_msg = run_experiment_now(created_exp)
+                if ok:
+                    collection_experiments.update_one(
+                        {"_id": inserted_id, "owner": username},
+                        {"$set": {"status": new_status, "results": results, "started_at": results["started_at"], "completed_at": results["completed_at"]}},
+                    )
+                    flash(run_msg, "success")
+                else:
+                    flash(run_msg, "warning")
+            else:
+                flash("Experiment created, but execution context was not found.", "warning")
+        else:
+            flash("Experiment created!", "success")
+        return redirect(url_for("experimentdetails", experiment_id=str(inserted_id)))
 
     return render_template(
         "experimentbuilder.html",
         username=username,
         targets=targets,
-        modules=modules
+        modules=modules,
+        recent_experiments=recent_experiments,
+        selected_target_id=selected_target_id,
+        selected_module_id=selected_module_id,
+        selected_attempts=selected_attempts,
+        selected_rate_limit=selected_rate_limit,
+        selected_dry_run=selected_dry_run
     )
 
 @app.route("/targets", methods=["GET", "POST"])
 def targets():
+    """Create and list per-user authorized test targets."""
     res = ensure_user_logged_in()
     if res is not None:
         return res
 
-    username = session["user"]
+    username = session["username"]
 
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
@@ -529,25 +711,84 @@ def targets():
 
 @app.route("/experimentdetails/<experiment_id>")
 def experimentdetails(experiment_id):
+    """Show one experiment only if it belongs to the logged-in user."""
     res = ensure_user_logged_in()
     if res is not None:
         return res
 
-    exp = collection_experiments.find_one({"_id": ObjectId(experiment_id)})
+    username = session["username"]
+
+    try:
+        experiment_object_id = ObjectId(experiment_id)
+    except Exception:
+        flash("invalid experiment id", "danger")
+        return redirect(url_for("main_dashboard"))
+
+    exp = collection_experiments.find_one({"_id": experiment_object_id, "owner": username})
     if not exp:
         flash("experiment not found", "danger")
         return redirect(url_for("main_dashboard"))
 
     target = collection_targets.find_one({"_id": exp["target_id"]}, {"name": 1})
-    target_name = target["name"] if target else "unknowntarget"
+    target_name = target["name"] if target else "unknown target"
+    recent_experiments = get_recent_experiments(username, limit=8)
 
-    return render_template("experimentdetails.html", exp=exp, target_name=target_name)
+    return render_template(
+        "experimentdetails.html",
+        exp=exp,
+        target_name=target_name,
+        username=username,
+        recent_experiments=recent_experiments
+    )
+
+
+@app.post("/experiments/<experiment_id>/start")
+def start_experiment(experiment_id):
+    """Manual trigger for rerunning supported experiment modules."""
+    res = ensure_user_logged_in()
+    if res is not None:
+        return res
+
+    username = session["username"]
+    try:
+        experiment_object_id = ObjectId(experiment_id)
+    except Exception:
+        flash("invalid experiment id", "danger")
+        return redirect(url_for("main_dashboard"))
+
+    exp = collection_experiments.find_one({"_id": experiment_object_id, "owner": username})
+    if not exp:
+        flash("experiment not found", "danger")
+        return redirect(url_for("main_dashboard"))
+
+    collection_experiments.update_one(
+        {"_id": experiment_object_id, "owner": username},
+        {"$set": {"status": "Running", "started_at": datetime.utcnow()}},
+    )
+
+    ok, new_status, results, run_msg = run_experiment_now(exp)
+    if ok:
+        update_doc = {"status": new_status, "results": results, "completed_at": datetime.utcnow()}
+        collection_experiments.update_one(
+            {"_id": experiment_object_id, "owner": username},
+            {"$set": update_doc},
+        )
+        flash(run_msg, "success")
+    else:
+        collection_experiments.update_one(
+            {"_id": experiment_object_id, "owner": username},
+            {"$set": {"status": "Queued"}},
+        )
+        flash(run_msg, "warning")
+
+    return redirect(url_for("experimentdetails", experiment_id=experiment_id))
 
 
 
 #profile
 @app.route('/profile')
 def profile():
+    """Render the logged-in user's profile view."""
     res = ensure_user_logged_in()
 
     if res is None:
@@ -564,6 +805,7 @@ def profile():
 
 @app.route('/logout')
 def logout():
+    """Clear session and return user to login screen."""
     #session.pop("user", None)
     session.clear()
     flash("You have been logged out.", "success")
