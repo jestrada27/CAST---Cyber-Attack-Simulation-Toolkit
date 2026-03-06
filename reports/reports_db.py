@@ -345,7 +345,7 @@ def pdf_attack_report(attack_id, user_id):
     flowables.append(Paragraph("Cyber Attack Simulation Toolkit - Attack Report", style_title))
     flowables.append(Spacer(1, 20))
 
-    # User Information (matches periodic report style)
+    # User Information
     flowables.append(Paragraph("User Information", style_section))
     username = session.get("username")
     generated_at = datetime.utcnow()
@@ -353,11 +353,15 @@ def pdf_attack_report(attack_id, user_id):
     flowables.append(Paragraph(f"<b>Generated at:</b> {generated_at}", style_body))
     flowables.append(Spacer(1, 20))
 
-    # Attack Details
+    # Attack Details - dynamically grab all fields
     flowables.append(Paragraph("Attack Details", style_section))
-    flowables.append(Paragraph(f"<b>Attack Type:</b> {attack.get('attack_type', 'N/A')}", style_body))
-    flowables.append(Paragraph(f"<b>Timestamp:</b> {attack.get('timestamp', 'N/A')}", style_body))
-    flowables.append(Paragraph(f"<b>Status:</b> {attack.get('status', 'N/A')}", style_body))
+    ignore_keys = {"_id", "user_id", "report_url", "report_available"}
+    for key, val in attack.items():
+        if key in ignore_keys:
+            continue
+        label = key.replace("_", " ").title()
+        flowables.append(Paragraph(f"<b>{label}:</b> {val}", style_body))
+        flowables.append(Spacer(1, 4))
     flowables.append(Spacer(1, 20))
 
     pdf_doc.build(flowables)
