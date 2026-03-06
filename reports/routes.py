@@ -4,6 +4,7 @@ from .reports_db import (getReportsForUser, get_filtered_logs, serialize_attack_
 clear_all_attacks as db_clear, update_report_url, serialize,generate_random_attack, clear_all_periodic as periodic_clear, delete_periodic as db_delete_periodic)
 from datetime import datetime
 from bson import ObjectId
+from .reports_db import pdf_attack_report  
 
 #reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
 reports_bp = Blueprint("reports", __name__)
@@ -203,10 +204,7 @@ def periodic_data():
       file_report = periodic_json(attacks_list, generated_at, start_period, end_period, report_id)
 
    elif report_type == "pdf":
-      try:
-         file_report = periodic_pdf(attacks_list, generated_at, start_period, end_period, report_id)
-      except RuntimeError as error:
-         return jsonify({"success": False, "message": str(error)}), 503
+      file_report = periodic_pdf(attacks_list, generated_at, start_period, end_period, report_id)
 
    else:
       return jsonify({"success": False, "message": "Failed to generate periodic report."})
@@ -268,6 +266,18 @@ def periodic_json_report(report_id):
    #return periodic_json(found_report["attacks"], found_report["generated_at"])
 
 
+@reports_bp.route("/pdf_report/<attack_id>")
+def attack_pdf_report(attack_id):
+    if "user_id" not in session:
+        return jsonify({"success": False}), 401
+
+    user_id = session["user_id"]
+    result = pdf_attack_report(attack_id, user_id)
+
+    if not result:
+        return jsonify({"success": False, "message": "PDF Report not found"}), 404
+
+    return result
 
 @reports_bp.route("/periodic_pdf/<report_id>")
 def periodic_pdf_report(report_id):
@@ -287,7 +297,4 @@ def periodic_pdf_report(report_id):
       }
    ))
 
-   try:
-      return periodic_pdf(attacks_list, found_report["generated_at"], found_report.get("start_period"), found_report.get("end_period"), found_report["_id"])
-   except RuntimeError as error:
-      return jsonify({"success": False, "message": str(error)}), 503
+   return periodic_pdf(attacks_list, found_report["generated_at"], found_report.get("start_period"), found_report.get("end_period"), found_report["_id"])
