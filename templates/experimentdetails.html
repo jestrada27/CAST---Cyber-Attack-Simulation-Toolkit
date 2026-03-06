@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>experimentdetail</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
+  <script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <div class="layout" id="layout">
+    <aside class="left-sidebar">
+      <!-- navigation section -->
+      <section class="section">
+        <h3>home</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('main_dashboard') }}">dashboard</a>
+          <!-- link to create new experiment -->
+          <a class="item" href="{{ url_for('experiment_builder') }}">new experiment</a>
+          <a class="item" href="{{ url_for('targets') }}">manage targets</a>
+          <a class="item" href="{{ url_for('profile') }}">profile</a>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>saved experiments</h3>
+        <div class="scroll">
+          <div class="button-group">
+            {% if recent_experiments %}
+              {% for recent in recent_experiments %}
+                <a class="item {% if recent.id == (exp._id|string) %}is-selected{% endif %}" href="{{ url_for('experimentdetails', experiment_id=recent.id) }}">
+                  {{ recent.module_label }} | {{ recent.status }} | {{ recent.created_at_label }}
+                </a>
+              {% endfor %}
+            {% else %}
+              <p class="item">No experiments yet</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <!-- user profile notch at bottom-left -->
+      <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
+        <div class="user-avatar">m</div>
+        <div class="user-meta">
+          <!-- username pulled from session -->
+          <div class="user-name">{{ username }}</div>
+          <div class="user-role">student</div>
+        </div>
+      </a>
+    </aside>
+
+    <main class="main">
+      <!-- top bar with experiment title + status -->
+      <header class="topbar">
+        <div>
+          <h1>experiment detail</h1>
+          <p class="sub">id: {{ exp._id }}</p>
+        </div>
+        <div class="pill">{{ exp.status }}</div>
+      </header>
+
+      <div class="panel" style="margin-top:16px;">
+        <!-- display experiment metadata -->
+        <p><b>target:</b> {{ target_name }}</p>
+        <p><b>module:</b> {{ exp.module_id }}</p>
+        <p><b>attempts:</b> {{ exp.attempts }}</p>
+        <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
+        <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
+
+        {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
+          <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
+            <form method="post" action="{{ url_for('start_experiment', experiment_id=(exp._id|string)) }}">
+              <button class="btn-primary" type="submit">start / rerun module</button>
+            </form>
+          </div>
+        {% endif %}
+
+        {% if exp.results %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Results</h2>
+            <p><b>mode:</b> {{ exp.results.mode }}</p>
+            <p><b>avg throughput:</b> {{ exp.results.avg_throughput_kbps }} kbps</p>
+            <p><b>avg detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
+            <p><b>guidance:</b> {{ exp.results.guidance }}</p>
+            <p><b>samples:</b> {{ exp.results.sample_count }}</p>
+            {% if exp.results.success_rate_percent is defined %}
+              <p><b>success rate:</b> {{ exp.results.success_rate_percent }}%</p>
+            {% endif %}
+            {% if exp.results.status_counts is defined %}
+              <p><b>status counts:</b> {{ exp.results.status_counts }}</p>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        <!-- action buttons -->
+        <div style="margin-top:14px; display:flex; gap:10px;">
+          <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">dashboard</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder', target_id=(exp.target_id|string), module_id=exp.module_id, attempts=exp.attempts, rate_limit=exp.rate_limit, dry_run=exp.dry_run) }}">reuse config</a>
+        </div>
+      </div>
+    </main>
+
+    <aside class="right-sidebar" id="rightSidebar">
+      <section class="section" style="height:100%">
+        <h3>actions</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('logout') }}">logout</a>
+        </div>
+      </section>
+    </aside>
+  </div>
+</body>
+</html>
+

@@ -72,8 +72,9 @@
     <aside class="left-sidebar">
       <section class="section">
         <h3>Home</h3>
-        <div>
-          <p class="item">TODO</p>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('experiment_builder') }}">Experiment Builder</a>
+          <a class="item" href="{{ url_for('targets') }}">Manage Targets</a>
           <button type="button" id="invitations">Invites</button>
         </div>
       </section>
@@ -92,10 +93,27 @@
         </div>
       </section>
 
+      <section class="section">
+        <h3>Saved Experiments</h3>
+        <div class="scroll">
+          <div class="button-group">
+            {% if recent_experiments %}
+              {% for exp in recent_experiments %}
+                <a class="item" href="{{ url_for('experimentdetails', experiment_id=exp.id) }}">
+                  {{ exp.module_label }} | {{ exp.status }} | {{ exp.created_at_label }}
+                </a>
+              {% endfor %}
+            {% else %}
+              <p class="item">No experiments yet</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
       <a class="user-notch" href="/profile" aria-label="Open profile">
         <div class="user-avatar">M</div>
         <div class="user-meta">
-          <div class="username">{{username}}</div>
+          <div class="user-name">{{username}}</div>
           <div class="user-role">Student</div>
         </div>
       </a>
@@ -108,24 +126,38 @@
           <h1>Dashboard</h1>
           <p class="sub">Welcome, {{username}}</p>
         </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <a class="btn-primary" href="{{ url_for('experiment_builder') }}">new experiment</a>
+          <a class="nav-item" href="{{ url_for('targets') }}">manage targets</a>
+        </div>
         <div class="pill">Offline mode</div>
       </header>
 
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div style="margin-top:12px;">
+            {% for cat, msg in messages %}
+              <div class="tag {% if cat=='success' %}ok{% endif %}" style="margin-right:8px;">{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
       <section class="grid cards">
         <div class="card">
-          <div class="card-value">Active Experiments</div>
+          <div class="card-value">{{ active_experiment_count }}</div>
           <div class="card-hint">Running now</div>
         </div>
         <div class="card">
-          <div class="card-value">Completed experiments</div>
+          <div class="card-value">{{ completed_experiment_count }}</div>
           <div class="card-hint">Total finished</div>
         </div>
         <div class="card">
-          <div class="card-value">Alerts</div>
+          <div class="card-value">0</div>
           <div class="card-hint">From telemetry</div>
         </div>
         <div class="card">
-          <div class="card-value">Targets Registered</div>
+          <div class="card-value">{{ targets_count }}</div>
           <div class="card-hint">Whitelisted</div>
         </div>
       </section>
@@ -172,6 +204,28 @@
             <div class="barcol" style="--h: 10%"><span>DNS</span></div>
             <div class="barcol" style="--h: 10%"><span>Brute Force</span></div>
           </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top:16px;">
+        <h2>Quick Configure From Saved Experiments</h2>
+        <div class="quick-list">
+          {% if recent_experiments %}
+            {% for exp in recent_experiments %}
+              <div class="quick-row">
+                <div class="quick-meta">
+                  <div class="quick-title">{{ exp.module_label }} on {{ exp.target_name }}</div>
+                  <div class="quick-sub">{{ exp.status }} | {{ exp.created_at_label }}</div>
+                </div>
+                <div class="quick-actions">
+                  <a class="nav-item" href="{{ url_for('experimentdetails', experiment_id=exp.id) }}">details</a>
+                  <a class="btn-primary" href="{{ url_for('experiment_builder', target_id=(exp.target_id|string), module_id=exp.module_id, attempts=exp.attempts, rate_limit=exp.rate_limit, dry_run=exp.dry_run) }}">configure attack</a>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="panel-hint">No saved experiments yet. Create one from the Experiment Builder.</p>
+          {% endif %}
         </div>
       </section>
     </main>

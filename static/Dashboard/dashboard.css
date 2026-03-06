@@ -10,6 +10,49 @@
   --border: rgba(255,255,255,.08);
 }
 
+.btn-primary{
+  display:inline-block;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid rgba(110,168,254,.25);
+  background:rgba(110,168,254,.16);
+  color:var(--text);
+  text-decoration:none;
+  font-weight:700;
+}
+.btn-primary:hover{ background:rgba(110,168,254,.22); }
+
+.left-sidebar{
+  width:240px;
+  padding:18px;
+  border-right:1px solid var(--border);
+  background: rgba(10,16,30,.6);
+  backdrop-filter: blur(8px);
+}
+
+.right-sidebar{
+  width:240px;
+  padding:18px;
+  border-left:1px solid var(--border);
+  background: rgba(10,16,30,.6);
+  backdrop-filter: blur(8px);
+}
+
+.section h3{ margin: 10px 0; color: var(--muted); font-size: 14px; }
+.item{
+  width:100%;
+  text-align:left;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.item:hover{ border-color: var(--border); color: var(--text); }
+.scroll{ max-height: 320px; overflow:auto; }
+.button-group{ display:flex; flex-direction:column; gap:8px; }
+
+
 *{box-sizing:border-box}
 body{
   margin:0;
@@ -124,6 +167,40 @@ h1{margin:0 0 4px 0; font-size:28px}
   font-size:12px;
 }
 .panel-hint{color:var(--muted); font-size:12px; margin:10px 2px 0}
+.quick-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.quick-row{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px 12px;
+  background:rgba(255,255,255,.02);
+}
+.quick-meta{
+  min-width:0;
+}
+.quick-title{
+  font-weight:700;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.quick-sub{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:4px;
+}
+.quick-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
 
 .user-notch{
   position: fixed;
@@ -204,13 +281,13 @@ h1{margin:0 0 4px 0; font-size:28px}
   width: 280px;
   min-width: 220px;
   flex-shrink: 0; /*prevents collapsing*/
-  height: 100vh;               /* required so percentage rows work */
-  overflow: hidden;
+  height: 100vh;
+  overflow-y: auto;
   text-overflow: ellipsis;
-  display: grid;
-  grid-template-rows: 20% 80%;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 12px;
+  padding: 12px 12px 96px 12px;
   box-sizing: border-box;
   background:#111827;
   color:#e6eef8;
@@ -394,4 +471,24 @@ h1{margin:0 0 4px 0; font-size:28px}
   flex-direction: column;  /* This makes children stack vertically */
   gap: 10px;               /* Optional spacing between buttons */
   width: 200px;
+}
+
+@media (max-width: 900px) {
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panels {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .quick-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
