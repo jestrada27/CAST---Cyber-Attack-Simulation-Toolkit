@@ -416,6 +416,52 @@
            background: rgba(220,38,38,.25);
            border-color: rgba(220,38,38,.35);
        }
+       .filters_dropdowns select{
+    background: rgba(17,26,46,.75);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+.filters_dropdowns select:hover{
+    border-color: rgba(110,168,254,.45);
+}
+
+.filters_dropdowns select option{
+    background: #0b1220;
+    color: var(--text);
+}
+
+.filters_dropdowns button{
+    background: rgba(110,168,254,.25);
+    color: var(--text);
+    border: 1px solid rgba(110,168,254,.35);
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.filters_dropdowns button:hover{
+    background: rgba(110,168,254,.35);
+}
+.periodic-reports-header select{
+    background: rgba(17,26,46,.75);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 10px;
+}
+
+.periodic-reports-header select:hover{
+    border-color: rgba(110,168,254,.45);
+}
+
+.periodic-reports-header select option{
+    background: #0b1220;
+    color: var(--text);
+}
+      
 
        
    </style>
@@ -569,7 +615,7 @@
                                        View JSON Report
                                    </a>
                                 |
-                                   <a href="{{ log.report_url }}" target="_blank" class="report-link">
+                                   <a href="/pdf_report/{{log.id}}" target="_blank" class="report-link">
                                        View PDF Report
                                    </a>
                                {% else %}
@@ -859,17 +905,15 @@
                 row += "<td><span class='status-badge " + currStatus + "'>" + attack.status + "</span></td>"
                 // row += "<td>" + attack.performance + "</td>"
 
-                if (attack.report_available)
-                {
-                    row += `<td><a href="/json_report/${attack.id}" target='_blank' class='report-link' download>View JSON Report</a>
-                    |
-                    <a href='" + attack.report_url +"'target='_blank' class='report-link'>View PDF Report</a></td>`;
-                    
-                    
-                }
-                else {
-                    row += "<td><span style='color: var(--muted);'>Not Available</span></td>";
-                }
+                if (attack.report_available) {
+    row += `<td>
+        <a href="/json_report/${attack.id}" target="_blank" class="report-link" download>View JSON Report</a>
+        |
+        <a href="/pdf_report/${attack.id}" target="_blank" class="report-link">View PDF Report</a>
+    </td>`;
+} else {
+    row += `<td><span style='color: var(--muted);'>Not Available</span></td>`;
+}
             
 
                 row += "<td><button class=\"delete-btn\" onclick=\"deleteAttack('" + attack.id + "')\">Delete</button></td>";
