@@ -84,7 +84,7 @@
            font-size: 20px;
        }
 
-       /* */
+       /* Noah - CSS styling for the periodic reports panel*/
         .periodic-reports-panel {
            background: rgba(17,26,46,.75);
            border: 1px solid var(--border);
@@ -94,6 +94,7 @@
            flex-direction: column;
            max-height: 300px
        }
+       /* Noah - CSS styling for the periodic reports header*/
         .periodic-reports-header {
            display: flex;
            justify-content: space-between;
@@ -101,7 +102,7 @@
            margin-bottom: 20px;
        }
 
-
+       /* Noah - CSS styling for the periodic reports header*/
        .periodic-reports-header h2 {
            margin: 0;
            font-size: 20px;
@@ -182,18 +183,18 @@
            background: rgba(255,255,255,.02);
        }
 
-    
+       /* Noah - CSS styling for the periodic reports table*/
        .periodic-reports-table {
            width: 100%;
            border-collapse: collapse;
        }
 
-
+       /* Noah - CSS styling for the periodic reports thead*/
        .periodic-reports-table thead {
            border-bottom: 1px solid var(--border);
        }
 
-
+       /* Noah - CSS styling for the periodic reports th*/
        .periodic-reports-table th {
            padding: 12px;
            text-align: left;
@@ -204,40 +205,40 @@
            letter-spacing: 0.5px;
        }
 
-
+       /* Noah - CSS styling for the periodic reports table data*/
        .periodic-reports-table td {
            padding: 14px 12px;
            border-bottom: 1px solid rgba(255,255,255,.04);
        }
 
-
+       /* Noah - CSS styling for the periodic reports table body hover*/
        .periodic-reports-table tbody tr:hover {
            background: rgba(255,255,255,.02);
        }
-
+       /* Noah - CSS styling for the periodic reports table wrap*/
        .periodic_table_wrap{
             flex: 1;
             overflow-y: auto;
             overflow-x: auto;
             min-height: 0;
        }
-
+       /* Noah - CSS styling for the periodic reports table scrollbar*/
        .periodic_table_wrap::-webkit-scrollbar{
             width: 10px;
             height: 10px;
        }
-
+       /* Noah - CSS styling for the periodic reports table scrollbar*/
        .periodic_table_wrap::-webkit-scrollbar-track{
             background: rgba(255, 255, 255, .03);
             border-radius: 10px;
        }
-
+       /* Noah - CSS styling for the periodic reports table scrollbar*/
        .periodic_table_wrap::-webkit-scrollbar-thumb{
             background: rgba(110,168,254,.25);
             border-radius: 10px;
             border: 2px solid rgba(17,26,46,.75)
        }    
-
+       /* Noah - CSS styling for the periodic reports table scrollbar*/
        .periodic_table_wrap::-webkit-scrollbar-thumb:hover{
             background: rgba(110,168,254,.35);
        }
@@ -565,6 +566,7 @@
                            <!-- <td>{{ log.performance }}</td> -->
                            <td>
                                {% if log.report_available %}
+                               <!-- Done by Noah: user can download the JSON version of the individual report-->
                                     <a href="/json_report/{{log.id}}" target="_blank" class="report-link" download>
                                        View JSON Report
                                    </a>
@@ -597,30 +599,35 @@
                {% endif %}
            </div>
            <!--Noah--> <!--Periodic Page-->
+           <!-- Panel for the periodic reports to be shown just like the attack logs / reports-->
            <div class="periodic-reports-panel">
                <div class="periodic-reports-header">
                    <h2>Periodic Reports</h2>
                    <div class="action-buttons">
                         <select id="periodicFormat">
+                            <!-- User can select periodic JSON or periodic PDF for download -->
                             <option value="Report Type">Report Type</option>
                             <option value="json">JSON</option>
                             <option value="pdf">PDF</option>
                         </select>
+                        
                        <button type="button" class="btn btn-primary" onclick="periodicReport()">Periodic Report</button>
                        
                         
                        </button>
+                       <!-- Buttons to clear periodic logs -->
                        <button class="btn btn-danger" onclick="clearAllPeriodic()">
                            Clear Periodic Reports
                        </button>
                    </div>
                </div>
-
+               <!-- Table for the periodic reports to be shown on the page -->
                {% if periodic_reports %}
                <div class="periodic_table_wrap">
                <table class="periodic-reports-table">
                     <thread>
                         <tr>
+                            <!-- Relevant periodic data shown -->
                             <th>Attacks Count</th>
                             <th>Start Period</th>
                             <th>End Period</th>
@@ -629,6 +636,7 @@
                         </tr>
                     </thread>
                     <tbody>
+                        <!-- Goes through periodic reports and displays them  -->
                         {% for report in periodic_reports %}
                         <tr id="periodic-{{ report.id }}">
                             <td>{{ report.attack_amount }}</td>
@@ -636,6 +644,7 @@
                             <td>{{ report.end_period }}</td>
                             <!-- <td>{{ report.type }}</td> -->
                             <td>
+                                <!-- Once a periodic is in database, user can download it again from page as json or pdf-->
                                 <a href="/periodic_json/{{ report.id }}" class="report-link">
                                     View JSON Periodic Report
                                 </a>
@@ -645,6 +654,7 @@
                                 </a>
                             </td>
                             <td>
+                                <!-- Buttons to delete periodic log -->
                                 <button class="delete-btn" onclick="deletePeriodic('{{ report.id }}')">
                                    Delete
                                </button>
@@ -732,14 +742,17 @@
        }
 
        //Noah
+       //JS function to delete a periodic log from the database by using the delete button in frontend (and users backend for deletion)
        function deletePeriodic(periodic_id)
        {
         if (!confirm('Are you sure you want to delete this periodic report?')) {
                return;
            }
+        //deletes the periodic using the route
         fetch(`/delete_periodic/${periodic_id}`, {
                method: 'DELETE'
            })
+           //Deletes and lets user known if everything for the deletion worked out or not
            .then(response => response.json())
            .then(data => {
                showNotification('Periodic report deleted successfully!');
@@ -776,12 +789,13 @@
            });
        }
        //Noah
+       //JS function to clear all periodic logs from db
        function clearAllPeriodic()
        {
         if (!confirm('Are you sure you want to delete ALL periodic reports? This cannot be undone.')) {
                return;
            }
-
+           //deletes all periodic logs using the route and lets the user know if it was successful
             fetch('/clear_all_periodic', {
                 method: 'DELETE'
             })
@@ -880,8 +894,10 @@
         }
         //End of Noah
         //Noah
+        //periodic report function for frontend to get the periodic report for the user and for downloading it.
         async function periodicReport()
         {
+            //checks report type
             const report_type = document.getElementById("periodicFormat").value;
             if (report_type === "Report Type")
             {
@@ -892,6 +908,7 @@
             //window.location.href = `/periodic_data?report_type=${report_type}`
             // const report_data = await fetch(`/periodic_data?report_type=${report_type}`);
             let report_url;
+            //gets json or pdf report using route
             if (report_type === "json")
             {
                 report_url = "/periodic_data?report_type=json"
@@ -909,9 +926,10 @@
                 return;
             }
             const success_msg = `Periodic Report Download Success -  ${report_type}.`;
-
+            //creates the blob for downloading the periodic report
             const blob = await report_data.blob()
             
+            //code for downloading the periodic report in frontend when button is pressed
             let url = window.URL.createObjectURL(blob)
             let a = document.createElement("a");
             a.href = url;
