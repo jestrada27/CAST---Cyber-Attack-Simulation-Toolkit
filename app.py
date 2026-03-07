@@ -30,6 +30,9 @@ app.register_blueprint(user_manage_bp)
 from reports import reports_bp
 app.register_blueprint(reports_bp)
 
+from xss_attack import xss_bp
+#app.register_blueprint(xss_bp)
+
 
 #password checking for if the password is a certain length and complexity
 def good_password_check(password):
