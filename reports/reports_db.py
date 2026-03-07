@@ -355,7 +355,7 @@ def pdf_attack_report(attack_id, user_id):
 
     # Attack Details - dynamically grab all fields
     flowables.append(Paragraph("Attack Details", style_section))
-    ignore_keys = {"_id", "user_id", "report_url", "report_available"}
+    ignore_keys = {"_id", "user_id"}
     for key, val in attack.items():
         if key in ignore_keys:
             continue
