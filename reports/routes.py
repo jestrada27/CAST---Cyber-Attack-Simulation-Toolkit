@@ -67,11 +67,13 @@ def delete_route(attack_id):
 
 
 #Noah
+#route for the user to delete a specific periodic report.
 @reports_bp.route("/delete_periodic/<periodic_id>", methods=["DELETE"])
 def periodic_delete_route(periodic_id):
    if "user_id" not in session:
       return {"success": False, "message": "Not logged in"}, 401
    
+   #uses delete function once the report is found and returns it was successful
    user_id = session["user_id"]
    periodic_deleted = db_delete_periodic(periodic_id, user_id)
 
@@ -90,12 +92,14 @@ def clear_all_route():
     return {"success": True, "deleted": cleared_attacks, "message": "Cleared."}
 
 #Noah
+#route that goes through the database and deletes all of the periodic logs for the user
 @reports_bp.route("/clear_all_periodic", methods=["DELETE"])
 def clear_periodic_route():
    
    if "user_id" not in session:
       return {"success": False, "message": "Not logged in"}, 401
-    
+   
+   #finds the user logs and clears them with the function
    user_id = session["user_id"]
    cleared_periodic = periodic_clear(user_id)
    return {"success": True, "deleted": cleared_periodic, "message": "Periodic cleared."}
@@ -146,6 +150,8 @@ def simulate_attack():
     return jsonify({"success": True})
 
 
+#Noah
+#imports for periodic data and routes
 from database import database_name
 report_collection = database_name['reports']
 collection_attacks = database_name["attacks"]
@@ -155,6 +161,7 @@ from io import BytesIO
 import json
 from datetime import datetime
 
+#route for the periodic data 
 @reports_bp.route("/periodic_data", methods=["GET"])
 def periodic_data():
     
@@ -164,17 +171,16 @@ def periodic_data():
    user_id = session["user_id"]
    report_type = request.args.get("report_type")
 
-   # previous_report = report_collection.find_one({
-   #    "user_id": ObjectId(user_id), "type": "periodic"
-   # }, sort = [("generated_at", -1)])
+   #checks for previous report
    previous_report = last_periodic_report(user_id)
    
+   #makes sure report is periodic
    user_attacks = {"user_id": ObjectId(user_id)}
 
    if previous_report:
       user_attacks["timestamp"] = {"$gt": previous_report["generated_at"]}
    
-
+   #gets the list of the attacks
    attacks_list = list(collection_attacks.find(user_attacks))
 
    #add if statement for checking if there is no attacks done since last report
@@ -185,7 +191,7 @@ def periodic_data():
    generated_at = datetime.utcnow()
    end_period = generated_at
    
-
+   #stores all of the relevant attack log information for the report
    result = report_collection.insert_one({
       "user_id": ObjectId(user_id),
       "report": "periodic",
@@ -199,6 +205,7 @@ def periodic_data():
    })
    report_id = result.inserted_id
 
+   #checks for the report type and if it's json or pdf and then report is returned at the end
    if report_type == "json":
       file_report = periodic_json(attacks_list, generated_at, start_period, end_period, report_id)
 
@@ -210,23 +217,25 @@ def periodic_data():
 
    return file_report
 
-
+#route for the individual json report for the frontend when the user wants to view it. 
 @reports_bp.route("/json_report/<attack_id>")
 def attack_json_report(attack_id):
 
    if "user_id" not in session:
       return jsonify({"success": False}), 401
    
+   #uses the backend json attack report function for the individual attack
    user_id = session["user_id"]
    individual_attack = json_attack_report(attack_id, user_id)
 
    if not individual_attack:
       return jsonify({"success": False, "message": "JSON Report not found"}), 404
    
-   #attack_serial = serialize_attack_log(individual_attack)
+   #sets up the attack for the json file for the bytes and data.
    json_byte_data = BytesIO(json.dumps(individual_attack, indent=4, default=str).encode("utf-8"))
    json_byte_data.seek(0)
    # filename = f"{attack_serial['attack_type']}_{attack_serial['time']}_Report.json"
+   #formats and sets up file name and everything correctly
    file_time = individual_attack.get("timestamp")
    if file_time:
       time_format = file_time.strftime('%Y-%m-%d_%H-%M-%S')
@@ -234,6 +243,7 @@ def attack_json_report(attack_id):
       time_format = "Unknown"
    filename = f"{individual_attack.get('attack_type', 'Attack')}_{time_format}_Report.json"
    #filename = f"{individual_attack.get('attack_type', 'Attack')}_{time_format}_Report"
+   #sends json file for individual report.
    return send_file(
       json_byte_data, 
       mimetype="application/json",
@@ -243,19 +253,21 @@ def attack_json_report(attack_id):
    #return jsonify(attack_serial)
    #return jsonify(individual_attack)
 
-
+#route for the json version of the periodic report
 @reports_bp.route("/periodic_json/<report_id>")
 def periodic_json_report(report_id):
 
    if "user_id" not in session:
       return jsonify({"success": False}), 401
    
+   #gets the json periodic report
    user_id = session["user_id"]
    found_report = json_periodic_report(report_id, user_id)
 
    if not found_report:
       return jsonify({"success": False, "message": "JSON Periodic Report not found"}), 404
    
+   #gets the list of attacks logs / attack documents for the periodic json and returns all of the documents in the period
    attacks_list = list(collection_attacks.find(
       {
          "_id": {"$in": [ObjectId(attacks) for attacks in found_report["attacks"]]}
@@ -265,23 +277,25 @@ def periodic_json_report(report_id):
    #return periodic_json(found_report["attacks"], found_report["generated_at"])
 
 
-
+#route for the pdf version of the periodic report
 @reports_bp.route("/periodic_pdf/<report_id>")
 def periodic_pdf_report(report_id):
 
    if "user_id" not in session:
       return jsonify({"success": False}), 401
 
+   #gets the periodic report and uses the json function for the base of the report for the pdf
    user_id = session["user_id"]
    found_report = json_periodic_report(report_id, user_id)
 
    if not found_report:
       return jsonify({"success": False, "message": "PDF Periodic Report not found"}), 404
    
+   #gets the list of attack logs / attack documents
    attacks_list = list(collection_attacks.find(
       {
          "_id": {"$in": [ObjectId(attacks) for attacks in found_report["attacks"]]}
       }
    ))
-
+   #returns the pdf version of the periodic report using the json data, but with periodic_pdf function
    return periodic_pdf(attacks_list, found_report["generated_at"], found_report.get("start_period"), found_report.get("end_period"), found_report["_id"])
