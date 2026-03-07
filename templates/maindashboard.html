@@ -84,6 +84,47 @@
             <div class="barcol" style="--h: 10%"><span>DNS</span></div>
             <div class="barcol" style="--h: 10%"><span>Brute Force</span></div>
           </div>
+        </div>
+
+        <!-- ADDED: Recent Brute Force Activity -->
+        <div class="panel">
+          <h2>Recent Brute Force Activity</h2>
+          {% if recent_bruteforce %}
+            <ul class="simple-list">
+              {% for item in recent_bruteforce %}
+                <li>
+                  <strong>{{ item.username or 'unknown' }}</strong>
+                  &nbsp;•&nbsp;
+                  {{ item.status or 'n/a' }}
+                  {% if item.http_code %} ({{ item.http_code }}){% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No brute force attempts yet.</p>
+          {% endif %}
+        </div>
+
+        <!-- ADDED: Recent DNS Activity -->
+        <div class="panel">
+          <h2>Recent DNS Activity</h2>
+          {% if recent_dns %}
+            <ul class="simple-list">
+              {% for item in recent_dns %}
+                <li>
+                  <strong>{{ item.domain or '—' }}</strong>
+                  &nbsp;•&nbsp;
+                  Entropy: {{ item.entropy or '0' }}
+                  &nbsp;•&nbsp;
+                  Flag: {{ item.flag or 'normal' }}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No DNS logs yet.</p>
+          {% endif %}
+        </div>
+
       </section>
     </main>
   <a class="user-notch" href="/profile" aria-label="Open profile">

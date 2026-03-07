@@ -3,19 +3,26 @@ from pymongo import MongoClient
 import os
 import bcrypt
 from dotenv import load_dotenv
+import math  # ADDED
+
 load_dotenv()
 
 connection = os.getenv('MONGODB_URI')
 
-dbclient = MongoClient(connection, tlsAllowInvalidCertificates=True)  
+dbclient = MongoClient(connection, tlsAllowInvalidCertificates=True)
 
 database_name = dbclient["CAST"]
 collection_users = database_name["users"]
 
+# added collections
+collection_dns = database_name["dns_logs"]
+collection_bruteforce = database_name["bruteforce_telemetry"]
+
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRETKEY')
 
-#createaccount
+
+#create account
 
 @app.route('/createaccount', methods=['GET', 'POST'])
 def create_account():
@@ -26,9 +33,9 @@ def create_account():
         confirm_pw = request.form['confirm_pw']
 
         if password != confirm_pw:
-            flash('Password not the same', 'danger' )
+            flash('Password not the same', 'danger')
             return redirect('/createaccount')
-        
+
         if collection_users.find_one({"username": username}):
             flash('User already exists', 'danger')
             return redirect('/createaccount')
@@ -46,20 +53,19 @@ def create_account():
         })
 
         flash('Account successfully created', 'success')
-
         return redirect('/')
-    
+
     return render_template('createaccount.html')
 
-#userlogin
-    
+
+#user login-
+
 @app.route('/', methods=['GET', 'POST'])
 def user_login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
-        #user = collection_users.find_one({"username": username, "password": password})
         user = collection_users.find_one({"username": username})
 
         if user:
@@ -73,10 +79,13 @@ def user_login():
                 flash('Incorrect login info', 'danger')
         else:
             flash('Incorrect login info', 'danger')
-    
+
     return render_template('login.html')
 
-#maindashboard
+
+
+# main-dashboard
+
 
 @app.route('/main_dashboard')
 def main_dashboard():
@@ -86,9 +95,83 @@ def main_dashboard():
         return redirect(url_for('user_login'))
 
     username = session["user"]
-    return render_template('maindashboard.html', username=username)
 
-#logout
+    # ADDED: Fetch recent brute force and DNS logs
+    recent_bruteforce = list(collection_bruteforce.find().sort("_id", -1).limit(5))
+    recent_dns = list(collection_dns.find().sort("_id", -1).limit(5))
+
+    return render_template(
+        'maindashboard.html',
+        username=username,
+        recent_bruteforce=recent_bruteforce,
+        recent_dns=recent_dns
+    )
+
+
+
+# DNS TUNNELING
+
+
+def calculate_entropy(text):
+    if not text:
+        return 0
+
+    freq = {}
+    for c in text:
+        freq[c] = freq.get(c, 0) + 1
+
+    entropy = 0
+    length = len(text)
+
+    for c in freq:
+        p = freq[c] / length
+        entropy += -p * math.log2(p)
+
+    return entropy
+
+
+@app.route('/dns_test', methods=['GET', 'POST'])
+def dns_test():
+
+    if "user" not in session:
+        flash("Please log in first.", "danger")
+        return redirect(url_for('user_login'))
+
+    if request.method == 'POST':
+        domain = request.form['domain']
+
+        threshold_frequency = 5
+        threshold_entropy = 3.5
+
+        count = collection_dns.count_documents({"domain": domain})
+
+        subdomain = domain.split(".")[0]
+        entropy_value = calculate_entropy(subdomain)
+
+        flag = "normal"
+
+        if count >= threshold_frequency:
+            flag = "high_frequency"
+
+        if entropy_value >= threshold_entropy:
+            flag = "high_entropy"
+
+        result = {
+            "domain": domain,
+            "entropy": round(entropy_value, 2),
+            "count": count + 1,
+            "flag": flag
+        }
+
+        collection_dns.insert_one(result)
+
+        return render_template("dns_result.html", result=result)
+
+    return render_template("dns_test.html")
+
+
+
+# logout
 
 @app.route('/logout')
 def logout():
@@ -99,13 +182,3 @@ def logout():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-# username = input("Enter user: ")
-# password = input("Enter password: ")
-# user = collection_users.find_one({"username": username, "password": password})
-
-# print("Correct")
-
-# @app.route('/main_dashboard')
-# def main_dashboard():
-    
