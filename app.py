@@ -641,6 +641,10 @@ def experiment_builder():
                 selected_dry_run=dry_run
             )
 
+        description = request.form.get("description", "").strip()
+        notes = request.form.get("notes", "").strip()
+        
+        
         exp_doc = {
             "owner": username,
             "target_id": target_object_id,
@@ -648,6 +652,8 @@ def experiment_builder():
             "attempts": attempts,
             "rate_limit": rate_limit,
             "dry_run": dry_run,
+            "description": description,
+            "notes": notes,
             "status": "Queued",
             "created_at": datetime.utcnow()
         }
