@@ -206,6 +206,37 @@
             <div class="barcol" style="--h: 10%"><span>Brute Force</span></div>
           </div>
         </div>
+        <div class="panel">
+          <h2>DNS Tunneling — Quick Actions</h2>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+            <a class="btn-primary" href="{{ url_for('experiment_builder', module_id='dns', attempts=5, rate_limit=1.0, dry_run=True) }}">
+              create DNS dry-run (5)
+            </a>
+
+            <a class="btn-secondary" href="{{ url_for('experiment_builder', module_id='dns', attempts=10, rate_limit=0.8, dry_run=True) }}">
+              create DNS dry-run (10)
+            </a>
+          </div>
+
+          <h3 style="margin:0 0 10px 0; font-size:14px;">Recent DNS Experiments</h3>
+
+          {% if recent_experiments %}
+            <div class="button-group">
+              {% for exp in recent_experiments %}
+                {% if exp.module_label == "DNS Tunneling" %}
+                  <a class="item" href="{{ url_for('experimentdetails', experiment_id=exp.id) }}">
+                    DNS | {{ exp.status }} | {{ exp.created_at_label }} | {{ exp.target_name }}
+                  </a>
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="panel-hint">No DNS experiments yet.</p>
+          {% endif %}
+        </div>
+
+
       </section>
 
       <section class="panel" style="margin-top:16px;">
@@ -253,4 +284,4 @@
   </div>
 </body>
 
-</html>
+</html> 
