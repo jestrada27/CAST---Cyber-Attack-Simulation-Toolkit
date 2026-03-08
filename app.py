@@ -515,11 +515,10 @@ def main_dashboard():
     })
     targets_count = collection_targets.count_documents({"owner": username})
 
-        return render_template(
+    return render_template(
         'Dashboard/maindashboard.html',
         username=username,
         recent_experiments=recent_experiments,
-        dns_recent_experiments=dns_recent_experiments,   # NEW
         active_experiment_count=active_experiment_count,
         completed_experiment_count=completed_experiment_count,
         targets_count=targets_count
@@ -535,29 +534,7 @@ def experiment_builder():
 
     username = session["username"]
     recent_experiments = get_recent_experiments(username, limit=8)
-    
-        # --- NEW: DNS-focused slices for the dashboard ---
-    dns_recent_experiments = list(
-        collection_experiments
-        .find({"owner": username, "module_id": "dns"})
-        .sort("created_at", -1)
-        .limit(5)
-    )
 
-    # Make dns docs display-friendly 
-    for exp in dns_recent_experiments:
-        exp["id"] = str(exp["_id"])
-        created_at = exp.get("created_at")
-        exp["created_at_label"] = created_at.strftime("%Y-%m-%d %H:%M UTC") if isinstance(created_at, datetime) else "Unknown time"
-        exp["status"] = exp.get("status", "Unknown")
-
-        # Optional: show target name
-        t_id = exp.get("target_id")
-        if t_id:
-            tdoc = collection_targets.find_one({"_id": t_id}, {"name": 1})
-            exp["target_name"] = (tdoc or {}).get("name", "Unknown target")
-        else:
-            exp["target_name"] = "Unknown target"
 
     # Load targets
     targets = list(collection_targets.find({"owner": username}, {"name": 1}))
