@@ -33,6 +33,10 @@ app.register_blueprint(reports_bp)
 from xss_attack import xss_bp
 #app.register_blueprint(xss_bp)
 
+from operator_controls import operator_cntrl_bp
+#app.register_blueprint(operator_cntrl_bp)
+
+
 
 #password checking for if the password is a certain length and complexity
 def good_password_check(password):
