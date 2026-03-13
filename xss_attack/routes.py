@@ -12,7 +12,7 @@ collection_attacks = database_name["attacks"]
 collection_targets = database_name["targets"]
 
 #xss route to start/run the attack if needed
-@xss_bp.route("/xss_start", methods=["GET"])
+@xss_bp.route("/xss_start", methods=["POST"])
 def xss_run_attack():
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
@@ -20,26 +20,42 @@ def xss_run_attack():
     #get data for user and data for the target and payload
     user_id = session["user_id"]
     data = request.get_json()
-
+    if not data:
+        return jsonify({"success": False, "message": "JSON Issue"})
+    
     target_id = data.get("target_id")
+    if not target_id:
+        return jsonify({"success": False, "message": "Target ID Issue"})
+    try:
+        target_id = ObjectId(target_id)
+    except: 
+        return jsonify({"success": False, "message": "Target ID Issue"})
+    
     xss_payload = data.get("payload")
-
-    ###xss_config = {data.get("payloads"), data.get("xss_type")}
+    # if not xss_payload:
+    #     return jsonify({"success": False, "message": "Not XSS payload"})
+    #xss_config = {data.get("payloads"), data.get("xss_type")}
+    xss_config = {"payloads": [xss_payload] if xss_payload else None, "xss_type": data.get("xss_type", "reflected")}
 
     #find target in db and do xss on target
-    target = collection_targets.find_one({"_id": ObjectId(target_id)})
+    #target = collection_targets.find_one({"_id": ObjectId(target_id)})
+    target = collection_targets.find_one({"_id": target_id})
     #target = collection_targets.find_one({"_id": ObjectId(target_id), "whitelisted": True})
     if not target:
         return jsonify({"success": False, "message": "Issue with finding target."})
 
-    attack_result = xss_attack(xss_payload, target)
+    if "url" not in target: 
+        return jsonify({"success": False, "message": "No target URL"})
+
+    #attack_result = xss_attack(xss_payload, target)
+    attack_result = xss_attack(target, xss_config)
 
     #store info in db for the attack log/report 
     status = "Completed"
     attack_log = {
         "user_id": ObjectId(user_id),
         "attack_type": "XSS",
-        "target_id": ObjectId(target_id),
+        "target_id": target_id,
         "timestamp": datetime.utcnow(),
         "status": status,
         "report_available": True,
@@ -50,7 +66,7 @@ def xss_run_attack():
         "vulnerability": attack_result["vulnerability"],
         "xss_time": attack_result["xss_time"],
         "attack_xss_log": attack_result["xss_log"],
-        #"attack_xss_config": xss_config,
+        "attack_xss_config": xss_config
         
     }
     
@@ -59,5 +75,6 @@ def xss_run_attack():
     return jsonify({
         "success": True,
         "attack_id": str(doc_result.inserted_id),
-        "vulnerability": attack_result["vulnerability"]
+        "vulnerability": attack_result["vulnerability"],
+        "xss_log": attack_result["xss_log"]
     })
