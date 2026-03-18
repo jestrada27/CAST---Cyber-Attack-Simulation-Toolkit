@@ -1,6 +1,7 @@
 import time, requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+import html
 
 #list of base payloads for the xss testing for cli
 payload_list = ["<script", "onerror", "onload[]", 
@@ -21,74 +22,101 @@ def xss_attack(target, xss_config):
     attack_timer = time.time()
     xss_payload = xss_config.get("payloads") or payload_list
     xss_type = xss_config.get("xss_type", "reflected")
+
+    #integration with builder
+    attempt_limit = xss_config.get("attempts", 5)
+    rate_limit = xss_config.get("rate_limit", 1.0)
+    dry_run = xss_config.get("dry_run", True)
     
     
     xss_log.append(f'XSS type: {xss_type}')
     xss_attempt = 0
     xss_success_num = 0
     url = target["url"]
+    xss_log.append(f"Attempt limit: {attempt_limit}")
+    xss_log.append(f"Rate limit: {rate_limit}")
+    xss_log.append(f"Dry run: {dry_run}")
+
+    url_list= [url]
+    if xss_config.get("crawl", False):
+        xss_log.append("Crawl to find URLs")
+        scanned = scan_xss_crawl(url)
+        url_list.extend(scanned)
+        xss_log.append(f"Scanned and found {len(scanned)} URLs")
 
     #loop to go through the target and see if there are any attack vulnerabilities for the target
-    for payload in xss_payload:
-        #updates logs based on information about the xss attack
-        xss_log.append(f"XSS Payload for Attack using {payload}")
-        xss_attempt += 1
-
-        try:
-            response = requests.get(target["url"], params={target.get("param", "q"): payload}, timeout=5)
-            soup = BeautifulSoup(response.text, "html.parser")
-            if target.get("sanitizes_input"):
-                xss_log.append("Target sanitized XSS input.")
-                continue
-
-            xss_log.append("Target did not sanitize XSS input.")
-
-            if xss_type == "stored":
-                if target.get("stores_input"):
-                    xss_log.append("XSS Payload for attack stored.")
-        
-            if target.get("output_escaped"):
-                xss_log.append("Output escaped before rendering via payload information.")
-
-            xss_log.append("Ouput from XSS payload was not escaped.")
-
-            #if payload in soup.text:
-            if payload in response.text:
-                xss_log.append("XSS attack went through in the browser.")
-                xss_success_num += 1
-            else: 
-                xss_log.append("Payload not reflected.")
-            
-            payload_escaped = payload.replace("<", "&lt;").replace(">", "&gt;")
-            if payload_escaped in soup.text:
-                xss_log.append("Payload escaped")
-            
-            if "Content-Security-Policy" in response.headers:
-                xss_log.append("Site has Content Security Policy in header")
-
-        except Exception as error_exception:
-            xss_log.append(f"Error with request/xss: {error_exception}")
-            
-    site_forms = get_site_forms(url)
-    xss_log.append(f"Forms on page: {len(site_forms)}")
-    for form in site_forms:
-        form_details = get_form_details(form)
-        for payload in xss_payload:
-            xss_log.append(f"Inject payload into form: {payload}")
+    #for payload in xss_payload[:attempt_limit]:
+    for url_index in url_list:
+        for payload in xss_payload[:attempt_limit]:
+            #updates logs based on information about the xss attack
+            xss_log.append(f"XSS Payload for Attack using {payload}")
             xss_attempt += 1
-
-            try: 
-                response = submit_form(form_details, url, payload)
+            if dry_run:
+                xss_log.append(f"Dry run being done. Attack would test.")
+                continue
+            try:
+                response = requests.get(url_index, params={target.get("param", "q"): payload}, timeout=5)
+                time.sleep(rate_limit)
                 soup = BeautifulSoup(response.text, "html.parser")
+                if target.get("sanitizes_input"):
+                    xss_log.append("Target sanitized XSS input.")
+                    continue
+
+                xss_log.append("Target did not sanitize XSS input.")
+
+                if xss_type == "stored":
+                    if target.get("stores_input"):
+                        xss_log.append("XSS Payload for attack stored.")
+            
+                if target.get("output_escaped"):
+                    xss_log.append("Output escaped before rendering via payload information.")
+
+                xss_log.append("Output from XSS payload was not escaped.")
+
                 #if payload in soup.text:
                 if payload in response.text:
-                    xss_log.append("Payload reflected form.")
+                    xss_log.append("XSS attack went through in the browser.")
                     xss_success_num += 1
-                else:
-                    xss_log.append("Payload didn't reflect form.")
+                else: 
+                    xss_log.append("Payload not reflected.")
+                
+                payload_escaped = payload.replace("<", "&lt;").replace(">", "&gt;")
+                if payload_escaped in soup.text:
+                    xss_log.append("Payload escaped")
+                
+                if "Content-Security-Policy" in response.headers:
+                    xss_log.append("Site has Content Security Policy in header")
+
             except Exception as error_exception:
                 xss_log.append(f"Error with request/xss: {error_exception}")
-                        
+                
+        site_forms = get_site_forms(url)
+        xss_log.append(f"Forms on page: {len(site_forms)}")
+        for form in site_forms:
+            form_details = get_form_details(form)
+            for payload in xss_payload[:attempt_limit]:
+                xss_log.append(f"Inject payload into form: {payload}")
+                xss_attempt += 1
+                if dry_run:
+                    xss_log.append(f"Dry run being done. Attack would test.")
+                    continue
+                try: 
+                    response = submit_form(form_details, url, payload)
+                    stored_check = requests.get(url, timeout=5)
+                    if payload in stored_check.text:
+                        xss_log.append("XSS stored")
+                        xss_success_num += 1
+                    time.sleep(rate_limit)
+                    soup = BeautifulSoup(response.text, "html.parser")
+                    #if payload in soup.text:
+                    if payload in response.text or html.escape(payload) in response.text:
+                        xss_log.append("Payload reflected form.")
+                        xss_success_num += 1
+                    else:
+                        xss_log.append("Payload didn't reflect form.")
+                except Exception as error_exception:
+                    xss_log.append(f"Error with request/xss: {error_exception}")
+                            
 
     
     #end of attack information for the xss info
@@ -97,19 +125,29 @@ def xss_attack(target, xss_config):
 
     if xss_success_num > 0:
         vulnerability = True
-        payload_check = "Successful payload."
+        #payload_check = "Successful payload."
     else:
         vulnerability = False
-        payload_check = "Payload failed."
+        #payload_check = "Payload failed."
 
     #returns relevant information from the attack to see the vulnerbility, logs, and other important information
-    return {
+    result = {
+        "attack_type": "XSS",
         "vulnerability": vulnerability,
-        "xss_attempt": xss_attempt,
-        "xss_successful": payload_check,
+        "attempts": xss_attempt,
+        #"xss_successful": payload_check,
+        "successful_count": xss_success_num,
         "xss_time": xss_time,
-        "xss_log": xss_log
+        "xss_log": xss_log,
+
+        "experiment_details": {
+            "xss_type": xss_type,
+            "rate_limit": rate_limit,
+            "dry_run": dry_run,
+            "payloads_used": xss_payload[:attempt_limit]
+            }
     }
+    return result
 
 
 def get_site_forms(url):
@@ -171,3 +209,32 @@ def submit_form(form_details, url, payload):
         return requests.post(target_url, data=data, timeout=5)
     else:
         return requests.get(target_url, params=data, timeout = 5)
+    
+
+def scan_xss_crawl(crawl_url, num_page=5):
+    crawled_links = set()
+    visit = [crawl_url]
+    scanned_urls = []
+
+    while visit and len(crawled_links) < num_page:
+        url = visit.pop(0)
+
+        if url in crawled_links:
+            continue
+        visit.add(url)
+    
+        try:
+            response = requests.get(url, timeout=5)
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            for link in soup.find_all("a", href=True):
+                new_link = urljoin(url, link["href"])
+
+                if crawl_url in new_link and new_link not in crawled_links:
+                    scanned_urls.append(new_link)
+                    visit.append(new_link)
+        except Exception:
+            pass
+
+    return scanned_urls
+
