@@ -35,7 +35,13 @@ def xss_run_attack():
     # if not xss_payload:
     #     return jsonify({"success": False, "message": "Not XSS payload"})
     #xss_config = {data.get("payloads"), data.get("xss_type")}
-    xss_config = {"payloads": [xss_payload] if xss_payload else None, "xss_type": data.get("xss_type", "reflected")}
+    xss_config = {"payloads": [xss_payload] if xss_payload else None, 
+                  "xss_type": data.get("xss_type", "reflected"),
+                  "attempts": data.get("attempts", 5),
+                  "rate_limit": data.get("rate_limit", 1.0),
+                  "dry_run": data.get("dry_run", False),
+                  "crawl": data.get("crawl", False)
+                }
 
     #find target in db and do xss on target
     #target = collection_targets.find_one({"_id": ObjectId(target_id)})
