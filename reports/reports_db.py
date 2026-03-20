@@ -94,7 +94,6 @@ def delete_attack(attack_id, user_id):
    return result.deleted_count > 0
 
 #Noah
-#function to query database and delete specific periodic report
 def delete_periodic(periodc_id, user_id):
    result = report_collection.delete_one({
       "_id": ObjectId(periodc_id),
@@ -109,21 +108,17 @@ def clear_all_attacks(user_id):
    return result.deleted_count
 
 #Noah
-#function go in database and delete all of the periodic reports
 def clear_all_periodic(user_id):
    delete_periodic_log = report_collection.delete_many({"user_id": ObjectId(user_id), "report": "periodic"})
    return delete_periodic_log.deleted_count
 
-#function to get all of the periodic reports from the database for the user and display them.
 def get_periodic(user_id):
 
-   #query for the list of periodic reports for the user.
    periodic_reports = list(report_collection.find({
       "user_id": ObjectId(user_id), "report": "periodic"
    }).sort("generated_at", -1))
    periodic_json_format = []
 
-   #loop through reports and display relevant info for frontend table and then return it
    for report in periodic_reports:
       periodic_json_format.append({
       "id": str(report["_id"]),
@@ -252,12 +247,10 @@ def get_filtered_logs(
 
 #    user_obj = {"user_id": ObjectId(user_id)}
 
-#Noah F - Code
 from flask import send_file, session
 from io import BytesIO
 import json
 
-#json attack report for the code to be able to find the attack log for the json report.
 def json_attack_report(attack_id, user_id):
    result = collection_attacks.find_one({
        "_id": ObjectId(attack_id),
@@ -265,7 +258,7 @@ def json_attack_report(attack_id, user_id):
    
    return result
 
-#json periodic report query to find the json periodic report.
+
 def json_periodic_report(report_id, user_id):
    result = report_collection.find_one({
       "_id": ObjectId(report_id),
@@ -274,7 +267,6 @@ def json_periodic_report(report_id, user_id):
    })
    return result
 
-#function for the periodic report to make it periodic. checks database if there has been any reports generated already for period.
 def last_periodic_report(user_id):
 
    #user_obj = {"user_id": ObjectId(user_id)}
@@ -284,16 +276,19 @@ def last_periodic_report(user_id):
       sort=[("generated_at", -1)])
 
 
-#Function to create periodic json reports 
 from collections import Counter
 def periodic_json(attacks, generated_at, start_period=None, end_period=None, report_id=None):
 
-   #gets info
+   #attacks_formatted = [serialize_attack_log(attack) for attack in attacks]
+   # return jsonify({
+   #    "generated_at": datetime.utcnow(),
+   #    "attack_amount": len(attacks_formatted),
+   #    "attacks": attacks_formatted
+   # })
    username = session.get("username")
    attack_status_counter = Counter(attack.get("status", "unknown") for attack in attacks)
    attack_type_counter = Counter(attack.get("attack_type", "unknown") for attack in attacks)
 
-   #sets up info for the periodic data to be used in report
    periodic_json_data = {
       "report_id": str(report_id),
       "generated_by": username,
@@ -311,12 +306,11 @@ def periodic_json(attacks, generated_at, start_period=None, end_period=None, rep
       "attacks": attacks
    }
    
-   #sets up file and makes sure to create json file correctly and for the bytes
+
    filename = f"Periodic_Report_{username}_{periodic_json_data['generated_at'].strftime('%Y-%m-%d_%H-%M-%S')}.json" 
    json_byte_data = BytesIO(json.dumps(periodic_json_data, indent=4, default=str).encode("utf-8"))
    json_byte_data.seek(0)
 
-   #sends the file for download
    return send_file(
       json_byte_data, 
       mimetype="application/json",
@@ -324,16 +318,69 @@ def periodic_json(attacks, generated_at, start_period=None, end_period=None, rep
       download_name=filename
       )
       
-#imports for the reportlab library to use
+
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.graphics.charts.piecharts import Pie
 from reportlab.graphics.shapes import Drawing
+from reportlab.lib import colors
 
-#function that creates the periodic report by making a pdf version for the user.
+def pdf_attack_report(attack_id, user_id):
+    attack = collection_attacks.find_one({
+        "_id": ObjectId(attack_id),
+        "user_id": ObjectId(user_id)
+    })
+    if not attack:
+        return None
+
+    pdf_buffer = BytesIO()
+    pdf_doc = SimpleDocTemplate(pdf_buffer)
+    flowables = []
+    sample_styles = getSampleStyleSheet()
+    style_title = sample_styles['Heading1']
+    style_body = sample_styles['BodyText']
+    style_section = sample_styles['Heading2']
+
+    # Title
+    flowables.append(Paragraph("Cyber Attack Simulation Toolkit - Attack Report", style_title))
+    flowables.append(Spacer(1, 20))
+
+    # User Information
+    flowables.append(Paragraph("User Information", style_section))
+    username = session.get("username")
+    generated_at = datetime.utcnow()
+    flowables.append(Paragraph(f"<b>Generated by user:</b> {username}", style_body))
+    flowables.append(Paragraph(f"<b>Generated at:</b> {generated_at}", style_body))
+    flowables.append(Spacer(1, 20))
+
+    # Attack Details - dynamically grab all fields
+    flowables.append(Paragraph("Attack Details", style_section))
+    ignore_keys = {"_id", "user_id"}
+    for key, val in attack.items():
+        if key in ignore_keys:
+            continue
+        label = key.replace("_", " ").title()
+        flowables.append(Paragraph(f"<b>{label}:</b> {val}", style_body))
+        flowables.append(Spacer(1, 4))
+    flowables.append(Spacer(1, 20))
+
+    pdf_doc.build(flowables)
+    pdf_buffer.seek(0)
+
+    attack_type = attack.get("attack_type", "Attack")
+    timestamp = attack.get("timestamp")
+    time_format = timestamp.strftime('%Y-%m-%d_%H-%M-%S') if timestamp else "Unknown"
+    filename = f"{attack_type}_{time_format}_Report.pdf"
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename
+    )
+
 def periodic_pdf(attacks, generated_at, start_period=None, end_period=None, report_id=None):
 
-   #sets up pdf creation 
    pdf_buffer = BytesIO()
    pdf_doc = SimpleDocTemplate(pdf_buffer)
    flowables = []
@@ -344,7 +391,6 @@ def periodic_pdf(attacks, generated_at, start_period=None, end_period=None, repo
    style_small_heading = sample_styles["Heading3"]
    indv_part_section = sample_styles['Heading4']
 
-   #Ttile and important information
    title = Paragraph("Cyber Attack Simulation Toolkit Periodic Report", style_title)
    flowables.append(title)
    flowables.append(Spacer(1, 20))
@@ -411,7 +457,6 @@ def periodic_pdf(attacks, generated_at, start_period=None, end_period=None, repo
          flowables.append(Paragraph(f"<b>{key}:</b> {val}", style_body))
       flowables.append(Spacer(1, 10))
 
-   #build and send pdf file
    pdf_doc.build(flowables)
 
    pdf_buffer.seek(0)
@@ -423,10 +468,9 @@ def periodic_pdf(attacks, generated_at, start_period=None, end_period=None, repo
       download_name=filename
       )
 
-#function to create the pie chart that will 
+
 def pie_chart(attack_data):
 
-   #sets up pie chart for the pdf
    draw = Drawing(400, 300)
    chart = Pie()
    chart.x = 100
@@ -436,8 +480,6 @@ def pie_chart(attack_data):
 
    # chart.data = list(attack_data.keys())
    # chart.labels = list(attack_data.values())
-
-   #gets all of the data and lables for the pie chart and sets the pie chart up
    labels = list(attack_data.keys())
    data = list(attack_data.values())
    total_num = sum(data)
@@ -445,13 +487,12 @@ def pie_chart(attack_data):
    chart.data = data
    chart.labels  = [f"{label}: {val/total_num:.2%}" for label, val in zip(labels, data)]
     
-   
+
    chart.sideLabels=True
    chart.simpleLabels=True
 
    chart.slices.strokeWidth=0.5
    chart.slices.popout=1
 
-   #creates/draws and returns pie chart.
    draw.add(chart)
    return draw

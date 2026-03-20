@@ -1,0 +1,2 @@
+alice:wrong1,wrong2,password123
+bob:guess1,guess2
