@@ -41,8 +41,12 @@ for payload in xss_payloads:
 # Replace with a real target_id from your MongoDB targets collection
 # Or temporarily hardcode the target in xssroutes.py for testing
 #"target_id": "000000000000000000000001",
-        "target_id": "69b5de2fc5ee963d26b7b122",
-        "payload": payload
+        # "target_id": "69b5de2fc5ee963d26b7b122",
+        #"target_id": "69bb8256c648d3143d94e20a",
+        "target_id": "69bb82abc648d3143d94e20c",
+        "payload": payload,
+        "dry_run": True,
+        "crawl": True
         }, allow_redirects=False)
     print("Status Code:", xss_test.status_code)
 # Try to parse and print the JSON response from the route
