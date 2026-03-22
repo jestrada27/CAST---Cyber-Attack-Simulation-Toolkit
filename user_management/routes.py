@@ -218,7 +218,7 @@ def remove_user_from_group():
         return {"success": False, "message": "Missing field group_id"}, 400
     removeUserFromGroup(session["user_id"], group_id)
     return jsonify({"success": True})
-
+'''
 @user_manage_bp.route("/is_admin", methods=["POST"])
 def is_admin():
     if "user_id" not in session:
@@ -232,6 +232,7 @@ def is_admin():
         return {"success": False, "message": "Missing field group_id"}, 400
     res = isUserAdmin(session["user_id"], group_id)
     return jsonify({"is_admin":res})
+'''
 
 #TODO
 @user_manage_bp.route("/is_owner", methods=["POST"])

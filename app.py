@@ -10,8 +10,8 @@ import bcrypt
 import time
 from bson import ObjectId
 from itsdangerous import URLSafeTimedSerializer as Serializer
-from Attacks.DNSTunnelingExperiment import run_dns_tunneling_experiment
-from Attacks.ModuleRunners import run_bruteforce_experiment, run_generic_module_simulation
+from Attacks.DNSTunneling.DNSTunnelingExperiment import run_dns_tunneling_experiment
+from Attacks.ModuleRunners import run_bruteforce_experiment, run_sqli_experiment, run_generic_module_simulation
 
 
 # Mongo collections used directly by this module.
@@ -481,8 +481,11 @@ def run_experiment_now(experiment):
             results = run_bruteforce_experiment(attempts=attempts, rate_limit=rate_limit, dry_run=dry_run)
             status = "Dry-Run Complete" if dry_run else "Completed"
             return True, status, results, "Brute force simulation finished."
-
-        if module_id in {"sqli", "xss", "replay"}:
+        if module_id == "sqli":
+            results = run_sqli_experiment(dry_run=dry_run)
+            status = "Dry-Run Complete" if dry_run else "Completed"
+            return True, status, results, "SQL injection simulation finished"
+        if module_id in {"xss", "replay"}:
             results = run_generic_module_simulation(module_id=module_id, attempts=attempts, rate_limit=rate_limit, dry_run=dry_run)
             status = "Dry-Run Complete" if dry_run else "Completed"
             return True, status, results, f"{module_id.upper()} simulation finished."

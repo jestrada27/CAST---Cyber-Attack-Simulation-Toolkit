@@ -76,6 +76,37 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True):
         "success_rate_percent": success_rate,
     }
 
+def run_sqli_experiment(DEFAULT_TARGET, dry_run):
+    started_at = datetime.utcnow()
+    run_id = str(uuid.uuid4())
+
+    # Lazy import keeps app startup resilient if optional module deps are missing.
+    from Attacks.SQLInjection.SQLInjectionAttack import run_tests
+
+    try:
+        results = run_tests(
+            target_url=DEFAULT_TARGET,
+            run_id=run_id,
+            dry_run=bool(dry_run),
+        )
+        telemetry_mode = "mongodb"
+    except Exception as error:
+        # If telemetry DB is unavailable (for example missing MONGODB_URI),
+        # fall back to a local safe simulation so the module still runs.
+        status_name = "dry_run" if dry_run else "simulated"
+        telemetry_mode = f"fallback_local ({error})"
+
+    completed_at = datetime.utcnow()
+
+
+    return {
+        "mode": "dry_run" if dry_run else "simulated_active",
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "run_id": run_id,
+        "telemetry_mode": telemetry_mode,
+        "results": results
+    }
 
 def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True):
     """
