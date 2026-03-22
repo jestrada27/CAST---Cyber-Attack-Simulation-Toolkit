@@ -68,6 +68,8 @@
         <p><b>attempts:</b> {{ exp.attempts }}</p>
         <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
         <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
+        <p><b>description:</b> {{ exp.description if exp.description else "none" }}</p>
+        <p><b>notes:</b> {{ exp.notes if exp.notes else "none" }}</p>
 
         {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
           <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">

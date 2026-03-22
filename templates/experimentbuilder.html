@@ -110,6 +110,16 @@
             <span>rate_limit</span>
             <input type="number" name="rate_limit" value="{{ selected_rate_limit }}" step="0.1" min="0.1" max="10">
           </label>
+          
+          <label class="field">
+            <span>description</span>
+            <input type="text" name="description" placeholder="short description of this experiment">
+          </label>
+
+          <label class="field">
+            <span>notes</span>
+            <textarea name="notes" rows="3" placeholder="optional notes about this test"></textarea>
+          </label>
 
           <label class="field checkbox">
             <input type="checkbox" name="dry_run" {% if selected_dry_run %}checked{% endif %}>
