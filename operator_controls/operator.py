@@ -1,0 +1,206 @@
+from bson import ObjectId
+from datetime import datetime
+from database import database_name
+from flask import jsonify
+from user_management.user_manage import admin_check, find_group
+
+collection_attacks = database_name["attacks"]
+collection_users = database_name['users']
+groups_collection = database_name['groups']
+collection_requests = database_name["attack_requests"] #experiments??
+
+
+def authorized_operator_check(user_id, group_id, admin_key):
+    user_id = ObjectId(user_id)
+    group_id = ObjectId(group_id)
+    group = find_group(group_id)
+    if not group:
+        return False
+
+    user = collection_users.find_one({
+        "_id": user_id,
+        "groups.group_id": group_id})
+    
+    if not user:
+        return False
+
+    if user_id == group.get("owner"):
+        return True
+    
+    is_user_admin = any(group["group_id"] == group_id and 
+    group.get("role") == "admin" for group in user.get("groups", []))
+
+    if not is_user_admin:
+        return False
+
+    return admin_check(user_id, group_id, admin_key)
+
+
+def group_member_check(user_id, group_id):
+    user = collection_users.find_one({"_id": ObjectId(user_id)})
+    if not user: 
+        return False
+    for group in user.get("groups", []):
+        if group["group_id"] == ObjectId(group_id):
+            return True
+    return False
+
+
+def approve_attack(user_id, attack_id, admin_key):
+    attack = collection_requests.find_one({"_id": ObjectId(attack_id)})
+    #attack = placeholder_collection.find_one({"_id": ObjectId(attack_id), ObjectId(group_id)})
+    if not attack: 
+        return False, "No attack request for approval"
+    
+    #if not admin_check(user_id, attack["group_id"], admin_key):
+    if not authorized_operator_check(user_id, attack["group_id"], admin_key): #fix
+        return False, "Unauthorized user for operator controls"
+    
+    if attack["status"] != "pending":
+       return False, "Attack no longer pending"
+
+    collection_requests.update_one(
+        {
+            "_id": ObjectId(attack_id)},
+            {"$set": {
+                "status": "approved",
+                "approved_by": ObjectId(user_id),
+                "approved_at": datetime.utcnow()
+            }}
+    )
+    
+    return True, "Attack approved"
+
+
+def deny_attack(user_id, attack_id, admin_key):
+    attack = collection_requests.find_one({"_id": ObjectId(attack_id)})
+        #attack = placeholder_collection.find_one({"_id": ObjectId(attack_id), ObjectId(group_id)})
+    if not attack: 
+        return False, "No attack request for approval"
+    
+    #if not admin_check(user_id, attack["group_id"], admin_key):
+    if not authorized_operator_check(user_id, attack["group_id"], admin_key): #fix
+        return False, "Unauthorized user for operator controls"
+    
+    if attack["status"] != "pending":
+       return False, "Attack no longer pending"
+
+    collection_requests.update_one(
+        {
+            "_id": ObjectId(attack_id)},
+            {"$set": {
+                "status": "denied",
+                "denied_by": ObjectId(user_id),
+                "denied_at": datetime.utcnow()
+            }}
+    )
+
+    return True, "Attack denied"
+
+
+def user_cancel_attack(user_id, attack_id):
+    attack = collection_requests.find_one({"_id": ObjectId(attack_id)})
+    if not attack:
+        return False, "Cannot find attack/experiment"
+    
+    if attack["submitted_by"] != ObjectId(user_id):
+        return False, "Request belongs to another user"
+    
+    if attack["status"] != "pending":
+        return False, "Attack has gone through already"
+    
+    collection_requests.update_one({"_id": ObjectId(attack_id)},
+    {"$set": {"status": "cancelled"}})
+
+
+# def undo_request_approval(user_id, attack_id, admin_key):
+#     attack = collection_requests.find_one({"_id": ObjectId(attack_id)})
+
+#     if attack["status"] != "approved":
+#         return False, "Attack not approved"
+    
+#     if not authorized_operator_check(user_id, attack["group_id"], admin_key): 
+#         return False, "Unauthorized user for operator controls"
+    
+#     collection_requests.update_one({"_id": ObjectId(attack_id)},
+#     {"$set": {"status": "pending"}})
+    
+
+def get_pending_attack_requests(group_id, user_id,  admin_key):
+    
+    if not authorized_operator_check(user_id, group_id, admin_key): #fix
+        return False, "Unauthorized user for operator controls"
+    
+    user_requests = list(collection_requests.find({"group_id": ObjectId(group_id),
+    "status": "pending" 
+    }))
+
+    for request in user_requests:
+        request["_id"] = str(request["_id"])
+        request["group_id"] = str(request["group_id"])
+        request["submitted_by"] = str(request["submitted_by"])
+
+    return True, user_requests
+
+
+def get_all_requests(group_id, user_id, admin_key, status=None):
+    if not authorized_operator_check(user_id, group_id, admin_key): 
+        return False, "Unauthorized user for operator controls"
+    user_id = ObjectId(user_id)
+    group_id = ObjectId(group_id)
+
+    found_group = {"group_id": group_id}
+    if status:
+        found_group["status"] = status
+
+    user_requests = list(collection_requests.find(found_group))
+    for request in user_requests:
+        request["_id"] = str(request["_id"])
+        request["group_id"] = str(request["group_id"])
+        request["submitted_by"] = str(request["submitted_by"])
+
+    return True, user_requests
+
+    
+
+def get_request_info(user_id, attack_id, admin_key):
+    
+    user_id = ObjectId(user_id)
+    # group_id = ObjectId(group_id)
+    attack_id = ObjectId(attack_id)
+    attack = collection_requests.find_one({"_id": attack_id})
+
+    if not attack:
+        return False, "Cannot find attack/experiment"
+
+    if not authorized_operator_check(user_id, attack["group_id"], admin_key): #fix
+        return False, "Unauthorized user for operator controls"
+    
+    attack["_id"] = str(attack["_id"])
+    attack["group_id"] = str(attack["group_id"])
+    attack["submitted_by"] = str(attack["submitted_by"])
+
+    return True, attack
+
+
+def get_user_requests(group_id, user_id, target_user_id, admin_key, status=None):
+    if not authorized_operator_check(user_id, group_id, admin_key): 
+        return False, "Unauthorized user for operator controls"
+    
+    target_user_id = ObjectId(target_user_id)
+    group_id = ObjectId(group_id)
+
+    found_requests = {
+        "group_id": group_id,
+        "submitted_by": target_user_id
+    }
+
+    if status:
+        found_requests["status"] = status
+
+    user_requests = list(collection_requests.find(found_requests))
+
+    for request in user_requests:
+        request["_id"] = str(request["_id"])
+        request["group_id"] = str(request["group_id"])
+        request["submitted_by"] = str(request["submitted_by"])
