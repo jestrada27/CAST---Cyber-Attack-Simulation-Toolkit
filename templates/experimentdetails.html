@@ -70,6 +70,8 @@
         <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
         <p><b>description:</b> {{ exp.description if exp.description else "none" }}</p>
         <p><b>notes:</b> {{ exp.notes if exp.notes else "none" }}</p>
+        <!-- Noah: added group name to detail page for operator control-->
+        <p><b>group: </b> {{ group_name}}</p>
 
         {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
           <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
@@ -78,6 +80,20 @@
             </form>
           </div>
         {% endif %}
+        
+
+        <!-- {% if exp.results.xss_log %}
+          <h3>XSS Results</h3>
+          <p>Vulnerable: {{ exp.results.vulnerability }}</p>
+          <p>Attempts: {{ exp.results.attempts }}</p>
+          <p>Successful: {{ exp.results.successful }}</p>
+
+          <pre>
+          {% for log in exp.results.xss_log %}
+          - {{ log }}
+          {% endfor %}
+          </pre>
+        {% endif %} -->
 
         {% if exp.results %}
           <div style="margin-top:16px;">
@@ -93,6 +109,11 @@
             {% if exp.results.status_counts is defined %}
               <p><b>status counts:</b> {{ exp.results.status_counts }}</p>
             {% endif %}
+            <!-- {% if exp.results %}
+              <p>Results: {{ exp.results }}</p>
+              {% else %}
+              <p>No results yet.</p>
+            {% endif %} -->
           </div>
         {% endif %}
 
