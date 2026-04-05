@@ -24,17 +24,19 @@ def xss_run_attack():
         return jsonify({"success": False, "message": "JSON Issue"})
     
     target_id = data.get("target_id")
+    #New: target id check
     if not target_id:
         return jsonify({"success": False, "message": "Target ID Issue"})
     try:
         target_id = ObjectId(target_id)
     except: 
         return jsonify({"success": False, "message": "Target ID Issue"})
-    
+    #-end
     xss_payload = data.get("payload")
     # if not xss_payload:
     #     return jsonify({"success": False, "message": "Not XSS payload"})
     #xss_config = {data.get("payloads"), data.get("xss_type")}
+    #New:added xss config
     xss_config = {"payloads": [xss_payload] if xss_payload else None, 
                   "xss_type": data.get("xss_type", "reflected"),
                   "attempts": data.get("attempts", 5),
@@ -50,11 +52,19 @@ def xss_run_attack():
     if not target:
         return jsonify({"success": False, "message": "Issue with finding target."})
 
-    if "url" not in target: 
+    #New: added for ip_or_url
+    if "ip_or_url" not in target: 
         return jsonify({"success": False, "message": "No target URL"})
 
     #attack_result = xss_attack(xss_payload, target)
-    attack_result = xss_attack(target, xss_config)
+    #New added target data for target and fixed attack_result
+    target_data = {
+    "url": target.get("ip_or_url"),
+    "param": target.get("param", "q"),
+    "method": target.get("method", "GET")
+}
+    attack_result = xss_attack(target_data, xss_config)
+    #-end
 
     #store info in db for the attack log/report 
     status = "Completed"
@@ -82,5 +92,6 @@ def xss_run_attack():
         "success": True,
         "attack_id": str(doc_result.inserted_id),
         "vulnerability": attack_result["vulnerability"],
+        #New: return xss log for the result
         "xss_log": attack_result["xss_log"]
     })
