@@ -121,6 +121,17 @@
             <textarea name="notes" rows="3" placeholder="optional notes about this test"></textarea>
           </label>
 
+          <!--Noah: added group for experiment builder for operator control -->
+           <label class="field">
+            <span>Group</span>
+            <select name="group_id" required>
+              <option value="">Select group</option>
+              {% for group in user_groups %}
+              <option value="{{ group.group_id }}">{{ group.name }}</option>
+            {% endfor %}
+            </select>
+          </label>
+
           <label class="field checkbox">
             <input type="checkbox" name="dry_run" {% if selected_dry_run %}checked{% endif %}>
             <span>Dry Run</span>
