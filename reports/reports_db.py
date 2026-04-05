@@ -3,6 +3,7 @@ from bson import ObjectId
 import random
 from database import database_name
 from flask import jsonify
+import html
 
 
 # Collections
@@ -360,7 +361,10 @@ def pdf_attack_report(attack_id, user_id):
         if key in ignore_keys:
             continue
         label = key.replace("_", " ").title()
-        flowables.append(Paragraph(f"<b>{label}:</b> {val}", style_body))
+        safe_val = html.escape(str(val))
+        flowables.append(Paragraph(f"<b>{label}:</b> {safe_val}", style_body))
+        
+      #   flowables.append(Paragraph(f"<b>{label}:</b> {val}", style_body))
         flowables.append(Spacer(1, 4))
     flowables.append(Spacer(1, 20))
 
@@ -454,7 +458,9 @@ def periodic_pdf(attacks, generated_at, start_period=None, end_period=None, repo
          if key in ignore_user:
             continue
          
-         flowables.append(Paragraph(f"<b>{key}:</b> {val}", style_body))
+         #flowables.append(Paragraph(f"<b>{key}:</b> {val}", style_body))
+         safe_val = html.escape(str(val))
+         flowables.append(Paragraph(f"<b>{key}:</b> {safe_val}", style_body))
       flowables.append(Spacer(1, 10))
 
    pdf_doc.build(flowables)
