@@ -11,6 +11,7 @@ BASE_URL = "http://localhost:5000"
 session = requests.Session()
 # Step 1 - Login to get a valid session cookie
 login = session.post(BASE_URL + "/", data={
+    #Noah - new code: made it to get username and password from env for testing route
     "username": os.getenv('USERNAME'),
     "password": os.getenv('PASSWORD')
 })
@@ -43,8 +44,10 @@ for payload in xss_payloads:
 #"target_id": "000000000000000000000001",
         # "target_id": "69b5de2fc5ee963d26b7b122",
         #"target_id": "69bb8256c648d3143d94e20a",
+        #Noah: new code (put an actual target for test)
         "target_id": "69bb82abc648d3143d94e20c",
         "payload": payload,
+        #Noah: new code (added dry run and crawl)
         "dry_run": True,
         "crawl": True
         }, allow_redirects=False)
