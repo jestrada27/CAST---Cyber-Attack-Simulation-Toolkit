@@ -3,6 +3,9 @@ import math
 import random
 import uuid
 
+from database import database_name
+collection_experiments = database_name["experiments"]
+collection_targets = database_name["targets"]
 
 def _bounded(value, low, high):
     return max(low, min(high, value))
@@ -114,3 +117,53 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True)
         "guidance": guidance,
         "module_label": cfg["label"],
     }
+
+#Noah: added module runner for run xss attack
+def run_xss_experiment(experiment, collection_targets):
+    
+    print("XSS ATTACK FUNCTION LOADED")
+    #from xss_attack.xss_logic import import xss_attack
+    from Attacks.XSSInjectAttack import xss_attack
+
+    started_at = datetime.utcnow()
+
+    target_doc = collection_targets.find_one({"_id": experiment.get("target_id")})
+    if not target_doc:
+        raise RuntimeError("Did not find target")
+    
+    #gets the target and xss_config
+    target = {
+        "url": target_doc.get("ip_or_url"),
+        "param": target_doc.get("param", "q"),
+        "method": target_doc.get("method", "GET")
+    }
+    
+    xss_config = {
+        "attempts": experiment.get("attempts", 5),
+        "rate_limit": experiment.get("rate_limit", 1),
+        "dry_run": experiment.get("dry_run", True),
+        "xss_type": "reflected",
+        "crawl": True
+    }
+
+    #does the attack and then returns everything
+    result = xss_attack(target, xss_config)
+
+    completed_at = datetime.utcnow()
+    #returns relevant information for the attack
+    return {
+        "mode": "dry_run" if xss_config["dry_run"] else "active",
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "attack_type": "XSS",
+        "target_url": target["url"],
+        "attempts": result.get("attempts"),
+        "xss_successful": result.get("successful_count"),
+        "vulnerability": result.get("vulnerability"),
+        "xss_time": result.get("xss_time"),
+        "attack_xss_log": result.get("xss_log"),
+        "attack_xss_config": xss_config,
+        "experiment_details": result.get("experiment_details"),
+
+        # "details": result
+     }
