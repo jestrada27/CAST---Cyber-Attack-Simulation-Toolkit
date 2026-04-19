@@ -4,6 +4,46 @@
   <meta charset="utf-8" />
   <title>Targets</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
+  <style>
+    .btn-success {
+      background: rgba(73,209,122,.12);
+      border: 1px solid rgba(73,209,122,.25);
+      color: var(--text);
+    }
+    .btn-danger {
+      background: rgba(220,38,38,.12);
+      border: 1px solid rgba(220,38,38,.25);
+      color: var(--text);
+    }
+    button {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 300;
+      transition: all 0.2s;
+    }
+    .filter-btn {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 300;
+      transition: all 0.2s;
+      color: white;
+    }
+    .filter-btn.approved {background: rgba(73,209,122,.12); border: 1px solid rgba(73,209,122,.25);}
+    .filter-btn.revoked {background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.25);}
+    
+    .btn-norm {
+        background: rgba(110,168,254,.25);
+        color: var(--text);
+        border: 1px solid rgba(110,168,254,.35);
+    }
+    
+  </style>
 </head>
 <body>
   <div class="layout">
@@ -73,6 +113,17 @@
               <div>
                 <b>{{ t.name }}</b><br>
                 <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span>
+                  <!-- <form method="POST" action="{{ url_for('target_and_whitelist.toggle_whitelist_route', target_id=t._id) }}">
+                    <button type="submit"> -->
+                  <button onclick="toggleWhitelist('{{ t._id }}')"
+                    class="{% if t.consent_status == 'approved' %}btn-danger{% else %}btn-success{% endif %}">
+                      {% if t.consent_status == "approved" %}
+                        Unwhitelist
+                      {% else %}
+                        Whitelist
+                      {% endif %}
+                    </button>
+                  <!-- </form> -->
               </div>
               <!-- consent status pill -->
               <span class="pill">{{ t.consent_status }}</span>
@@ -80,7 +131,135 @@
           {% endfor %}
         {% endif %}
       </div>
+
+      <!-- Whitelisted targets -->
+       <div class="panel whitelist-container" style="margin-top:16px;">
+          <!-- <div class="panel" style="margin-top:16px;"> -->
+        <h2 style="margin:0 0 10px 0; font-size:16px;">Whitelisted targets - Can be experimented on</h2>
+          {% if whitelisted_targets|length == 0 %}
+            <p style="color: var(--muted);">No whitelisted targets</p>
+          {% else %}
+            {% for t in whitelisted_targets %}
+              <div class="item" style="display:flex; justify-content:space-between; align-items:center;">
+                <b> {{ t.name }}</b>
+              </div>
+            {% endfor %}
+           {% endif %}
+      </div>
+
+      <!-- Targets by status -->
+      <div class="panel" style="margin-top:16px;">
+        <h2 style="margin:0 0 10px 0; font-size:16px;">Targets by status</h2>
+        <!-- <h5>Pending targets</h5>
+        <h5>Approved targets</h5>
+        <h5>Revoked targets</h5> -->
+        <div style="margin-bottom:10px">
+          <button class="btn-norm" onclick="showTargetStatus('all')">All targets</button>
+          <button class="btn-norm" onclick="showTargetStatus('pending')">Pending targets</button>
+          <button class="filter-btn approved" onclick="showTargetStatus('approved')">Whitelisted/approved targets</button>
+          <button class="filter-btn revoked" onclick="showTargetStatus('revoked')">Not whitelisted/revoked targets</button>
+        </div>
+        <div id="status-container" style="margin-top:10px;"> </div>
+
+      </div>
     </main>
   </div>
 </body>
 </html>
+
+<script>
+  let baseStatus = null
+  function showTargetStatus(status){
+    if (baseStatus){
+      filterStatus(status);
+      return;
+    }
+    fetch("/status_target")
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) return;
+        baseStatus = data.targets
+        filterStatus(status);
+      });
+      
+  }
+
+  function filterStatus(status){
+    const statusContainer = document.getElementById("status-container");
+    statusContainer.innerHTML = "";
+
+    if (status === "all"){
+      for (const eachStatus in baseStatus){
+        baseStatus[eachStatus].forEach(target => {
+          statusContainer.innerHTML += `<div>${target.name} - ${eachStatus}</div>`;
+        });
+      }
+    }
+
+    else if (status === "pending"){
+      if (!baseStatus["pending"] || baseStatus["pending"].length === 0){
+        statusContainer.innerHTML = "<p>No targets pending</p>"
+      }
+      // baseStatus["pending"].forEach(target => {
+      (baseStatus["pending"] || []).forEach(target => {
+        statusContainer.innerHTML += `<div>${target.name} - pending</div>`;
+      })
+
+    }
+    else if (status === "approved"){
+      if (!baseStatus["approved"] || baseStatus["approved"].length === 0){
+        statusContainer.innerHTML = "<p>No targets approved</p>"
+      }
+      // baseStatus["approved"].forEach(target => {
+      (baseStatus["approved"] || []).forEach(target => {
+        statusContainer.innerHTML += `<div>${target.name} - approved</div>`;
+      })
+    }
+
+    else if (status === "revoked"){
+      if (!baseStatus["revoked"] || baseStatus["revoked"].length === 0){
+        statusContainer.innerHTML = "<p>No targets revoked</p>"
+      }
+      // baseStatus["revoked"].forEach(target => {
+      (baseStatus["revoked"] || []).forEach(target => {
+        statusContainer.innerHTML += `<div>${target.name} - revoked</div>`;
+      })
+    }
+  }
+  function toggleWhitelist(id){
+    if (!confirm("Are you sure?")) return;
+      fetch(`/toggle_target/${id}`, {
+        method: "POST"
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success){
+          
+          whitelistUpdate();
+          location.reload();
+        }
+        else{
+          alert(data.message);
+        }
+      })
+      
+    }
+
+    function whitelistUpdate(id){
+      fetch("/whitelisted_target_list")
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) return;
+          const container = document.querySelector(".whitelist-container");
+          if (!container) return;
+          container.innerHTML = ""
+          data.target_list.forEach(t => {
+            container.innerHTML += `<div class="item">
+              <b>${t.name}</b>
+              <span>${t.consent_status}</span>
+            </div>
+            `;
+          });
+      });
+    }
+</script>
