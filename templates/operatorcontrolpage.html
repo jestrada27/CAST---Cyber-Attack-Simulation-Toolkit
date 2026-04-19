@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>operatorcontrols</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
+  
+</head>
+
+<body>
+    <div class="layout">
+
+    <aside class="left-sidebar">
+      <section class="section">
+        <h3>Home</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="item" href="{{ url_for('targets') }}">Manage Targets</a>
+          <a class="item" href="{{ url_for('profile') }}">profile</a>
+        </div>
+      </section>
+    </aside>
+
+
+    <main class="main">
+        <header class="topbar">
+        <div>
+          <h1>Operator Controls</h1>
+          <p class="sub">For Group Experiments</p>
+        </div>
+        <a class="btn-primary" href="{{ url_for('main_dashboard') }}">back</a>
+    </header>
+
+    <div style="display:flex; gap:20px;">
+
+  
+  <div style="flex:1;">
+    <section class="section">
+    
+      <h3>Groups You Are Admin Of</h3>
+
+      {% for group in operator_admin_groups %}
+        <div class="item">
+
+          <a href="?group_id={{ group.group_id }}">
+            {{ group.name }}
+          </a>
+
+          {% if selected_group_id == group.group_id %}
+            <div style="margin-left: 15px;">
+              <a href="?group_id={{ group.group_id }}&type=pending">
+                Pending Requests
+              </a>
+              <br>
+              <a href="?group_id={{ group.group_id }}&type=all">
+                Request History
+              </a>
+            </div>
+          {% endif %}
+
+        </div>
+      {% endfor %}
+
+    </section>
+  </div>
+
+  
+  <div style="flex:2;">
+    <section class="section">
+      <h3>Requests</h3>
+
+      {% if requests %}
+        {% for indv_request in requests %}
+          <div class="item">
+            <a href="?group_id={{ selected_group_id }}&type={{ view_type }}&request_id={{ indv_request._id }}">
+             <strong>User:</strong> {{ indv_request.username }}<br>
+             <strong>Attack:</strong> {{ indv_request.module or indv_request.attack_type or "N/A" }}
+            </a>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="item">No requests found</p>
+      {% endif %}
+    </section>
+
+    {% if request_details %}
+      <section class="section">
+        <h3>Details</h3>
+        <div class="panel">
+          <!-- <p><strong>ID:</strong> {{ request_details._id }}</p> -->
+          <!-- <p><strong>Status:</strong> {{ request_details.status }}</p> -->
+          <p><strong>User:</strong> {{ request_details.username }}</p>
+           <p>Module: {{ request_details.module }}</p>
+           <p>Attempts: {{ request_details.attempts }}</p>
+           <p>Rate Limit: {{ request_details.rate_limit }}</p>
+           <p>Target ID: {{ request_details.target_id }}</p>
+           <p>Created at: {{ request_details.created_at }}</p>
+          {% if request_details.status == "pending" %}
+            <button onclick="approveRequest('{{ request_details._id }}')">Approve</button>
+            <button onclick="denyRequest('{{ request_details._id }}')">Deny</button>
+          {% else %}
+            <p>Status: {{ request_details.status }}</p>
+    {% endif %}
+    
+          
+        </div>
+      </section>
+    {% endif %}
+    <div style="flex:2;">
+    <section class="section">
+       <h3>Group Members</h3>
+    {% if selected_group_id %}
+      <!-- <section class=""section> -->
+        {% if group_member_list %}
+          {% for member in group_member_list %}
+            <div class="item">
+              <a href="?group_id={{ selected_group_id }}&type=users&target_user_id={{ member.user_id }}">
+                {{ member.username }}
+              </a>
+            </div>
+          {% endfor %}
+      {% else %}
+          <p class="item">No group members found</p>
+      {% endif %}
+    </section>
+    {% endif %}
+    </div>
+  </div>
+
+</div>
+    </main>
+</div>
+</body>
+</html>
+
+
+<script>
+  function approveRequest(id){
+    fetch(`/approve/${id}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        group_id: "{{ selected_group_id }}"
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      location.reload();
+    })
+  }
+
+  function denyRequest(id){
+    fetch(`/deny/${id}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        group_id: "{{ selected_group_id }}"
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      location.reload();
+    })
+  }
+</script>
