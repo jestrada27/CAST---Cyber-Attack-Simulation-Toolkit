@@ -9,38 +9,69 @@ collection_attacks = database_name["attacks"]
 collection_users = database_name['users']
 groups_collection = database_name['groups']
 collection_requests = database_name["attack_requests"] #experiments??
+collection_experiments = database_name["experiments"]
 
+# #function for checking if the user is a valid operator
+# def authorized_operator_check(user_id, group_id):
+#     user_id = ObjectId(user_id)
+#     group_id = ObjectId(group_id)
+#     group = find_group(group_id)
+#     if not group:
+#         return False
 
-#function for checking if the user is a valid operator
-def authorized_operator_check(user_id, group_id, admin_key):
-    user_id = ObjectId(user_id)
-    group_id = ObjectId(group_id)
-    group = find_group(group_id)
-    if not group:
-        return False
-
-    #based on group. checks the group for user and then checks for the admin
-    user = collection_users.find_one({
-        "_id": user_id,
-        "groups.group_id": group_id})
+#     #based on group. checks the group for user and then checks for the admin
+#     user = collection_users.find_one({
+#         "_id": user_id,
+#         # "groups.group_id": group_id
+#         })
     
+#     if not user:
+#         return False
+
+    
+    
+#     # is_user_admin = any(group["group_id"] == group_id and 
+#     # group.get("role") == "admin" for group in user.get("groups", []))
+#     # is_user_admin = any(
+#     # g["group_id"] == group_id and g.get("role") == "admin"
+#     # for g in user.get("groups", []))
+#      # owner check (FIXED TYPE SAFETY)
+
+#     if str(group.get("owner")) == str(user_id):
+#         return True
+
+    
+#     is_user_admin = any(
+#         str(g.get("group_id")) == str(group_id) and g.get("role") == "admin"
+#         for g in user.get("groups", [])
+#     )
+
+#     if not is_user_admin:
+#         return False
+    
+#     group = find_group(group_id)
+
+#     admin_key = None
+#     for g in user.get("group_keys", []):
+#         if str(g["group_id"]) == str(group_id):
+#             admin_key = g.get("admin_key")
+#             break
+
+#     #returns the admin check
+#     return admin_check(user_id, group_id, admin_key)
+
+def authorized_operator_check(user_id, group_id):
+    user = collection_users.find_one({"_id": ObjectId(user_id)})
     if not user:
         return False
 
-    if user_id == group.get("owner"):
-        return True
-    
-    # is_user_admin = any(group["group_id"] == group_id and 
-    # group.get("role") == "admin" for group in user.get("groups", []))
-    is_user_admin = any(
-    g["group_id"] == group_id and g.get("role") == "admin"
-    for g in user.get("groups", [])
-)
-    if not is_user_admin:
-        return False
+    group_id = ObjectId(group_id)
 
-    #returns the admin check
-    return admin_check(user_id, group_id, admin_key)
+    for g in user.get("groups", []):
+        if g["group_id"] == group_id and g["role"] == "admin":
+            return True
+
+    return False
 
 
 #verifies that a group member is a part of the group
@@ -55,17 +86,38 @@ def group_member_check(user_id, group_id):
     return False
 
 
+def get_admin_groups(user_id):
+    found_user = collection_users.find_one({"_id": ObjectId(user_id)})
+    if not found_user:
+        return []
+    
+    operator_admin_groups = []
+    for group in found_user.get("groups", []):
+        if group.get("role") == "admin":
+            group_information = groups_collection.find_one({"_id": group["group_id"]})
+            if group_information:
+                operator_admin_groups.append({
+                    "group_id": str(group_information["_id"]),
+                    "name": group_information.get("name", "Unknown")
+                })
+
+    return operator_admin_groups
+
+
 #Function to let the operator approve an attack that a member requests
-def approve_attack(user_id, attack_id, admin_key):
+def approve_attack(user_id, attack_id, group_id):
     attack = collection_requests.find_one({"_id": ObjectId(attack_id)})
     #attack = placeholder_collection.find_one({"_id": ObjectId(attack_id), ObjectId(group_id)})
     if not attack: 
         return False, "No attack request for approval"
     
     #if not admin_check(user_id, attack["group_id"], admin_key):
-    if not authorized_operator_check(user_id, attack["group_id"], admin_key): #fix
+    if not authorized_operator_check(user_id, attack["group_id"]): #fix
         return False, "Unauthorized user for operator controls"
     
+    if attack["group_id"] != ObjectId(group_id):
+        return False, "Not the right group"
+
     if attack["status"] != "pending":
        return False, "Attack no longer pending"
     #goes through the attack requests and then updates the request to approved and returns it
@@ -82,16 +134,20 @@ def approve_attack(user_id, attack_id, admin_key):
     return True, "Attack approved"
 
 #Function to let the operator deny an attack that a member requests
-def deny_attack(user_id, attack_id, admin_key):
+def deny_attack(user_id, attack_id, group_id):
     attack = collection_requests.find_one({"_id": ObjectId(attack_id)})
         #attack = placeholder_collection.find_one({"_id": ObjectId(attack_id), ObjectId(group_id)})
     if not attack: 
         return False, "No attack request for approval"
     
     #if not admin_check(user_id, attack["group_id"], admin_key):
-    if not authorized_operator_check(user_id, attack["group_id"], admin_key): #fix
+    if not authorized_operator_check(user_id, attack["group_id"]): #fix
         return False, "Unauthorized user for operator controls"
     
+    if attack["group_id"] != ObjectId(group_id):
+        return False, "Not the right group"
+
+
     if attack["status"] != "pending":
        return False, "Attack no longer pending"
         #goes through the attack requests and then updates the request to deny it and returns it
@@ -120,7 +176,9 @@ def user_cancel_attack(user_id, attack_id):
         return False, "Attack has gone through already"
     #updates attack request to cancel it
     collection_requests.update_one({"_id": ObjectId(attack_id)},
-    {"$set": {"status": "cancelled"}})
+    {"$set": {"status": "cancelled", "cancelled_at": datetime.utcnow()}})
+
+    return True, "Attack cancelled"
 
 
 # def undo_request_approval(user_id, attack_id, admin_key):
@@ -136,9 +194,9 @@ def user_cancel_attack(user_id, attack_id):
 #     {"$set": {"status": "pending"}})
     
 #gets a list of the pending attack requests for a group so the operator can approve or deny
-def get_pending_attack_requests(group_id, user_id,  admin_key):
+def get_pending_attack_requests(group_id, user_id ):
     
-    if not authorized_operator_check(user_id, group_id, admin_key): #fix
+    if not authorized_operator_check(user_id, group_id): #fix
         return False, "Unauthorized user for operator controls"
     
     #gets all of the requests based on group membership and formats them to be shown
@@ -150,12 +208,24 @@ def get_pending_attack_requests(group_id, user_id,  admin_key):
         request["_id"] = str(request["_id"])
         request["group_id"] = str(request["group_id"])
         request["submitted_by"] = str(request["submitted_by"])
+        user = collection_users.find_one({"_id": ObjectId(request["submitted_by"])})
+        request["username"] = user["username"] if user else "Unknown"
+        experiment = collection_experiments.find_one({
+        "_id": request["experiment_id"]
+    })
+
+        if experiment:
+            request["module"] = experiment.get("module_id")
+            request["attempts"] = experiment.get("attempts")
+            request["rate_limit"] = experiment.get("rate_limit")
+            request["target_id"] = str(experiment.get("target_id"))
+
 
     return True, user_requests
 
 #gets all requests for everyone in the group
-def get_all_requests(group_id, user_id, admin_key, status=None):
-    if not authorized_operator_check(user_id, group_id, admin_key): 
+def get_all_requests(group_id, user_id, status=None):
+    if not authorized_operator_check(user_id, group_id): 
         return False, "Unauthorized user for operator controls"
     user_id = ObjectId(user_id)
     group_id = ObjectId(group_id)
@@ -164,18 +234,31 @@ def get_all_requests(group_id, user_id, admin_key, status=None):
     if status:
         found_group["status"] = status
 
+
     #finds all requests and shows them based on the group
     user_requests = list(collection_requests.find(found_group))
     for request in user_requests:
         request["_id"] = str(request["_id"])
         request["group_id"] = str(request["group_id"])
         request["submitted_by"] = str(request["submitted_by"])
+        user = collection_users.find_one({"_id": ObjectId(request["submitted_by"])})
+        request["username"] = user["username"] if user else "Unknown"
+        experiment = collection_experiments.find_one({
+        "_id": request["experiment_id"]
+    })
+
+        if experiment:
+            request["module"] = experiment.get("module_id")
+            request["attempts"] = experiment.get("attempts")
+            request["rate_limit"] = experiment.get("rate_limit")
+            request["target_id"] = str(experiment.get("target_id"))
+
 
     return True, user_requests
 
     
 #gets the information relevant from the request to be shown to the operator
-def get_request_info(user_id, attack_id, admin_key):
+def get_request_info(user_id, attack_id):
     
     user_id = ObjectId(user_id)
     # group_id = ObjectId(group_id)
@@ -185,7 +268,7 @@ def get_request_info(user_id, attack_id, admin_key):
     if not attack:
         return False, "Cannot find attack/experiment"
 
-    if not authorized_operator_check(user_id, attack["group_id"], admin_key): #fix
+    if not authorized_operator_check(user_id, attack["group_id"]): #fix
         return False, "Unauthorized user for operator controls"
     
     #after getting the information for the request it properly shows the relevant information
@@ -193,11 +276,21 @@ def get_request_info(user_id, attack_id, admin_key):
     attack["group_id"] = str(attack["group_id"])
     attack["submitted_by"] = str(attack["submitted_by"])
 
+    experiment = collection_experiments.find_one({
+    "_id": attack["experiment_id"]})
+
+    if experiment:
+        attack["module"] = experiment.get("module_id")
+        attack["attempts"] = experiment.get("attempts")
+        attack["rate_limit"] = experiment.get("rate_limit")
+        attack["target_id"] = str(experiment.get("target_id"))
+        attack["username"] = attack.get("username")
+
     return True, attack
 
 #gets all of the requests for a specific user to be listed 
-def get_user_requests(group_id, user_id, target_user_id, admin_key, status=None):
-    if not authorized_operator_check(user_id, group_id, admin_key): 
+def get_user_requests(group_id, user_id, target_user_id, status=None):
+    if not authorized_operator_check(user_id, group_id): 
         return False, "Unauthorized user for operator controls"
     
     target_user_id = ObjectId(target_user_id)
@@ -220,4 +313,31 @@ def get_user_requests(group_id, user_id, target_user_id, admin_key, status=None)
         request["group_id"] = str(request["group_id"])
         request["submitted_by"] = str(request["submitted_by"])
 
+        experiment = collection_experiments.find_one({
+    "_id": request["experiment_id"]})
+
+        if experiment:
+            request["module"] = experiment.get("module_id")
+            request["attempts"] = experiment.get("attempts")
+            request["rate_limit"] = experiment.get("rate_limit")
+            request["target_id"] = str(experiment.get("target_id"))
+            request["username"] = request.get("username")
+
     return True, user_requests
+
+
+def group_members(group_id, user_id):
+    if not authorized_operator_check(user_id, group_id): 
+        return False, "Unauthorized user for operator controls"
+    
+    group_list = list(collection_users.find({
+        "groups.group_id": ObjectId(group_id)
+    }, {"username": 1}))
+
+    serialization = []
+    for user in group_list:
+        serialization.append({
+            "user_id": str(user["_id"]),
+            "username": user.get("username", "Unknown")
+        })
+    return True, serialization
