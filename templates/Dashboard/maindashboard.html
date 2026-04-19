@@ -111,11 +111,18 @@
         </div>
       </section>
 
+      <section class="section">
+        <h3>Operator Controls</h3>
+          <div class="button-group">
+            <a class="item" href="{{ url_for('operator_cntrl_bp.operator_page') }}">Operator Controls</a>
+          </div>
+      </section>
+
       <a class="user-notch" href="/profile" aria-label="Open profile">
-        <div class="user-avatar">M</div>
+         <div class="user-avatar">{{ username[0]|upper }}</div>
         <div class="user-meta">
           <div class="user-name">{{username}}</div>
-          <div class="user-role">Student</div>
+          <!-- <div class="user-role">Student</div> -->
         </div>
       </a>
 
@@ -131,7 +138,7 @@
           <a class="btn-primary" href="{{ url_for('experiment_builder') }}">new experiment</a>
           <a class="nav-item" href="{{ url_for('targets') }}">manage targets</a>
         </div>
-        <div class="pill">Offline mode</div>
+        <!-- <div class="pill">Offline mode</div> -->
       </header>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
