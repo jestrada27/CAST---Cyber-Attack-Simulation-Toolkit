@@ -186,16 +186,41 @@ def whitelist_toggle(target_id, owner_name):
     return True, f"Target set to {target_new_status}"
 
 
-def delete_experiment_target(target_id, owner_name):
+def delete_experiment_target(experiment_id, owner_name):
+    if not ObjectId.is_valid(experiment_id):
+        return False, "Not a experiment"
+    experiment_id = ObjectId(experiment_id)
+
+    experiment_result = collection_experiments.delete_one({
+        "_id": experiment_id, "owner": owner_name},
+    )
+
+    if experiment_result.deleted_count == 0:
+        return False, "Experiment not found"
+    
+    return True, "Target deleted"
+
+
+def delete_target(target_id, owner_name):
     if not ObjectId.is_valid(target_id):
         return False, "Not a target"
     target_id = ObjectId(target_id)
 
-    target_result = collection_experiments.delete_one({
-        "_id": target_id, "owner": owner_name},
-    )
+
+    exp_target_link = collection_experiments.find_one({
+        "target_id": target_id, 
+        "owner": owner_name
+    })
+
+    if exp_target_link:
+        return False, "Target is used in an experiment. Delete experiment first."
+    
+    target_result = collection_targets.delete_one({
+        "_id": target_id, 
+        "owner": owner_name
+    })
 
     if target_result.deleted_count == 0:
-        return False, "Target not found"
+        return False, "Cannot find target"
     
     return True, "Target deleted"
