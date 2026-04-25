@@ -2,7 +2,7 @@ from flask import Blueprint, request, session, jsonify, Flask, redirect, render_
 from datetime import datetime
 from bson import ObjectId
 from .registrate_whitelist import (whitelist_target, get_whitelisted_targets, remove_target_whitelist, whitelist_toggle, 
-target_by_status_list, delete_experiment_target)
+target_by_status_list, delete_experiment_target, delete_target)
 
 #whitelist and target registration blueprint with imports above
 whitelist_bp = Blueprint("target_and_whitelist", __name__)
@@ -91,6 +91,18 @@ def whitelist_status_route():
     return jsonify({"success": True, "targets": result})
 
 
+@whitelist_bp.route("/delete_experiment/<experiment_id>", methods=["DELETE"])
+def delete_experiment_route(experiment_id):
+    if "username" not in session:
+       return {"success": False, "message": "Not logged in"}, 401
+    
+    owner_name = session["username"]
+
+    deleted_experiment, message = delete_experiment_target(experiment_id, owner_name)
+    return jsonify({"success": deleted_experiment, "message": message})
+
+
+
 @whitelist_bp.route("/delete_target/<target_id>", methods=["DELETE"])
 def delete_target_route(target_id):
     if "username" not in session:
@@ -98,5 +110,5 @@ def delete_target_route(target_id):
     
     owner_name = session["username"]
 
-    deleted_target, message = delete_experiment_target(target_id, owner_name)
+    deleted_target, message = delete_target(target_id, owner_name)
     return jsonify({"success": deleted_target, "message": message})
