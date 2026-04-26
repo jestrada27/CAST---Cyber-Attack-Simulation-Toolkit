@@ -10,55 +10,7 @@ collection_users = database_name['users']
 groups_collection = database_name['groups']
 collection_requests = database_name["attack_requests"] #experiments??
 collection_experiments = database_name["experiments"]
-
-# #function for checking if the user is a valid operator
-# def authorized_operator_check(user_id, group_id):
-#     user_id = ObjectId(user_id)
-#     group_id = ObjectId(group_id)
-#     group = find_group(group_id)
-#     if not group:
-#         return False
-
-#     #based on group. checks the group for user and then checks for the admin
-#     user = collection_users.find_one({
-#         "_id": user_id,
-#         # "groups.group_id": group_id
-#         })
-    
-#     if not user:
-#         return False
-
-    
-    
-#     # is_user_admin = any(group["group_id"] == group_id and 
-#     # group.get("role") == "admin" for group in user.get("groups", []))
-#     # is_user_admin = any(
-#     # g["group_id"] == group_id and g.get("role") == "admin"
-#     # for g in user.get("groups", []))
-#      # owner check (FIXED TYPE SAFETY)
-
-#     if str(group.get("owner")) == str(user_id):
-#         return True
-
-    
-#     is_user_admin = any(
-#         str(g.get("group_id")) == str(group_id) and g.get("role") == "admin"
-#         for g in user.get("groups", [])
-#     )
-
-#     if not is_user_admin:
-#         return False
-    
-#     group = find_group(group_id)
-
-#     admin_key = None
-#     for g in user.get("group_keys", []):
-#         if str(g["group_id"]) == str(group_id):
-#             admin_key = g.get("admin_key")
-#             break
-
-#     #returns the admin check
-#     return admin_check(user_id, group_id, admin_key)
+collection_targets = database_name["targets"]
 
 def authorized_operator_check(user_id, group_id):
     user = collection_users.find_one({"_id": ObjectId(user_id)})
@@ -85,7 +37,7 @@ def group_member_check(user_id, group_id):
             return True
     return False
 
-
+# function to get the admin groups for the user (groups that the user is an admin of)
 def get_admin_groups(user_id):
     found_user = collection_users.find_one({"_id": ObjectId(user_id)})
     if not found_user:
@@ -181,20 +133,8 @@ def user_cancel_attack(user_id, attack_id):
     return True, "Attack cancelled"
 
 
-# def undo_request_approval(user_id, attack_id, admin_key):
-#     attack = collection_requests.find_one({"_id": ObjectId(attack_id)})
-
-#     if attack["status"] != "approved":
-#         return False, "Attack not approved"
-    
-#     if not authorized_operator_check(user_id, attack["group_id"], admin_key): 
-#         return False, "Unauthorized user for operator controls"
-    
-#     collection_requests.update_one({"_id": ObjectId(attack_id)},
-#     {"$set": {"status": "pending"}})
-    
 #gets a list of the pending attack requests for a group so the operator can approve or deny
-def get_pending_attack_requests(group_id, user_id ):
+def get_pending_attack_requests(group_id, user_id):
     
     if not authorized_operator_check(user_id, group_id): #fix
         return False, "Unauthorized user for operator controls"
@@ -213,13 +153,26 @@ def get_pending_attack_requests(group_id, user_id ):
         experiment = collection_experiments.find_one({
         "_id": request["experiment_id"]
     })
-
+        # checks if its and experiment. if it is, it sets up everything for the request
         if experiment:
             request["module"] = experiment.get("module_id")
             request["attempts"] = experiment.get("attempts")
             request["rate_limit"] = experiment.get("rate_limit")
             request["target_id"] = str(experiment.get("target_id"))
+        #checks for target and sets up request correctly
+            target_id = experiment.get("target_id")
+            request["target_id"] = str(target_id)
+            found_target = collection_targets.find_one({"_id": target_id})
 
+            if found_target:
+                request["target_name"] = found_target.get("name", "Unknown target")
+            else:
+                request["target_name"] = "DELETED TARGET"
+            
+        else:
+            request["module"] = experiment.get("module_id")
+            request["target_id"] = "NONE"
+            request["target_name"] = "DELETED TARGET"
 
     return True, user_requests
 
@@ -246,13 +199,26 @@ def get_all_requests(group_id, user_id, status=None):
         experiment = collection_experiments.find_one({
         "_id": request["experiment_id"]
     })
-
+        # checks if its and experiment. if it is, it sets up everything for the request
         if experiment:
             request["module"] = experiment.get("module_id")
             request["attempts"] = experiment.get("attempts")
             request["rate_limit"] = experiment.get("rate_limit")
             request["target_id"] = str(experiment.get("target_id"))
+        #checks for target and sets up request correctly
+            target_id = experiment.get("target_id")
+            request["target_id"] = str(target_id)
+            found_target = collection_targets.find_one({"_id": target_id})
 
+            if found_target:
+                request["target_name"] = found_target.get("name", "Unknown target")
+            else:
+                request["target_name"] = "DELETED TARGET"
+            
+        else:
+            request["module"] = "DELETED EXPERIMENT"
+            request["target_id"] = "NONE"
+            request["target_name"] = "DELETED TARGET"
 
     return True, user_requests
 
@@ -276,9 +242,10 @@ def get_request_info(user_id, attack_id):
     attack["group_id"] = str(attack["group_id"])
     attack["submitted_by"] = str(attack["submitted_by"])
 
+    # gets experiment and checks for it. then sets up the experiement for the operator page
     experiment = collection_experiments.find_one({
     "_id": attack["experiment_id"]})
-
+    
     if experiment:
         attack["module"] = experiment.get("module_id")
         attack["attempts"] = experiment.get("attempts")
@@ -313,6 +280,7 @@ def get_user_requests(group_id, user_id, target_user_id, status=None):
         request["group_id"] = str(request["group_id"])
         request["submitted_by"] = str(request["submitted_by"])
 
+        # gets experiment and checks for it. then sets up the experiement for the operator page
         experiment = collection_experiments.find_one({
     "_id": request["experiment_id"]})
 
@@ -325,7 +293,7 @@ def get_user_requests(group_id, user_id, target_user_id, status=None):
 
     return True, user_requests
 
-
+#function that gets the members of the group for the operator
 def group_members(group_id, user_id):
     if not authorized_operator_check(user_id, group_id): 
         return False, "Unauthorized user for operator controls"
