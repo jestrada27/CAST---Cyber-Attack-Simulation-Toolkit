@@ -155,9 +155,10 @@ def user_requests_route(group_id, target_user_id):
                     "message": None if user_info_requested else "Requests not received"
     })
 
-
+# creates the operator page route that sets up the operatorcontrolspage.html
 from database import database_name
 collection_users = database_name["users"]
+# operator page route for the dashboard
 @operator_bp.route("/operator_dashboard")
 def operator_page():
    if "user_id" not in session:
@@ -169,7 +170,7 @@ def operator_page():
    if not found_user:
     #    return redirect("/login")
     return redirect("/")
-   
+#    gets the information for the page and sets it up
    selected_group_id = request.args.get("group_id")
    view_type = request.args.get("type")  # pending / all / users
 #   admin_key = request.args.get("admin_key")
@@ -178,6 +179,7 @@ def operator_page():
    request_details = None
    group_member_list = []
    status = request.args.get("status")
+#    uses functions to set up the page
    if request_id:
         # success, result = get_request_info(user_id, request_id, admin_key)
         success, result = get_request_info(user_id, request_id)
@@ -211,7 +213,7 @@ def operator_page():
     
 
    
-
+    #renders the operatorcontrolpage.html with all of the variables
    return render_template(
        "operatorcontrolpage.html", 
        operator_admin_groups=operator_admin_groups,
@@ -220,3 +222,28 @@ def operator_page():
         requests=requests,
         request_details=request_details,
         group_member_list=group_member_list)
+
+
+#route for the group list to display the group members based on a group
+@operator_bp.route("/group_list/<group_id>", methods=["GET"])
+def group_list_route(group_id):
+    if "user_id" not in session:
+       return {"success": False, "message": "Not logged in"}, 401
+   
+    user_id = ObjectId(session["user_id"])
+    group_list_ok, result = group_members(group_id, user_id)
+
+    return jsonify({"success": group_list_ok, "members": result if group_list_ok else None,
+        "message": None if group_list_ok else result
+    })
+
+#route for the operator to see the groups they are in
+@operator_bp.route("/operator_groups")
+def operator_group_route():
+    if "user_id" not in session:
+       return {"success": False, "message": "Not logged in"}, 401
+   
+    user_id = ObjectId(session["user_id"])
+
+    groups = get_admin_groups(user_id)
+    return jsonify({"success": True, "groups": groups})
