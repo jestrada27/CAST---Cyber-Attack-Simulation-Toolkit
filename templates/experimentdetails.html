@@ -11,25 +11,25 @@
 <body>
   <div class="layout" id="layout">
     <aside class="left-sidebar">
-      <!-- navigation section -->
       <section class="section">
-        <h3>home</h3>
+        <h3>Home</h3>
         <div class="button-group">
-          <a class="item" href="{{ url_for('main_dashboard') }}">dashboard</a>
-          <!-- link to create new experiment -->
-          <a class="item" href="{{ url_for('experiment_builder') }}">new experiment</a>
-          <a class="item" href="{{ url_for('targets') }}">manage targets</a>
-          <a class="item" href="{{ url_for('profile') }}">profile</a>
+          <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="item" href="{{ url_for('experiment_builder') }}">New Experiment</a>
+          <a class="item" href="{{ url_for('experiment_history') }}">Experiment History</a>
+          <a class="item" href="{{ url_for('targets') }}">Manage Targets</a>
+          <a class="item" href="{{ url_for('profile') }}">Profile</a>
         </div>
       </section>
 
       <section class="section">
-        <h3>saved experiments</h3>
+        <h3>Saved Experiments</h3>
         <div class="scroll">
           <div class="button-group">
             {% if recent_experiments %}
               {% for recent in recent_experiments %}
-                <a class="item {% if recent.id == (exp._id|string) %}is-selected{% endif %}" href="{{ url_for('experimentdetails', experiment_id=recent.id) }}">
+                <a class="item {% if recent.id == (exp._id|string) %}is-selected{% endif %}"
+                   href="{{ url_for('experimentdetails', experiment_id=recent._id if recent._id is defined else recent.id) }}">
                   {{ recent.module_label }} | {{ recent.status }} | {{ recent.created_at_label }}
                 </a>
               {% endfor %}
@@ -40,11 +40,9 @@
         </div>
       </section>
 
-      <!-- user profile notch at bottom-left -->
       <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
         <div class="user-avatar">m</div>
         <div class="user-meta">
-          <!-- username pulled from session -->
           <div class="user-name">{{ username }}</div>
           <div class="user-role">student</div>
         </div>
@@ -52,67 +50,225 @@
     </aside>
 
     <main class="main">
-      <!-- top bar with experiment title + status -->
       <header class="topbar">
         <div>
-          <h1>experiment detail</h1>
-          <p class="sub">id: {{ exp._id }}</p>
+          <h1>Experiment Detail</h1>
+          <p class="sub">
+            {{ exp.module_label if exp.module_label is defined else exp.module_id }} · {{ target_name }}
+          </p>
         </div>
-        <div class="pill">{{ exp.status }}</div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div class="pill">{{ exp.status }}</div>
+          <a class="btn-secondary" href="{{ url_for('experiment_history') }}">History</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder',
+                                target_id=(exp.target_id|string),
+                                module_id=exp.module_id,
+                                attempts=exp.attempts,
+                                rate_limit=exp.rate_limit,
+                                dry_run='true' if exp.dry_run else 'false') }}">
+            Reuse Config
+          </a>
+        </div>
       </header>
 
+      <section class="grid cards">
+        <div class="card">
+          <div class="card-label">Target</div>
+          <div class="card-value" style="font-size:22px;">{{ target_name }}</div>
+          <div class="card-hint">Assigned test target</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Module</div>
+          <div class="card-value" style="font-size:22px;">{{ exp.module_label if exp.module_label is defined else exp.module_id }}</div>
+          <div class="card-hint">Simulation type</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Attempts</div>
+          <div class="card-value">{{ exp.attempts }}</div>
+          <div class="card-hint">Configured run count</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Rate Limit</div>
+          <div class="card-value">{{ exp.rate_limit }}</div>
+          <div class="card-hint">Execution pacing</div>
+        </div>
+      </section>
+
       <div class="panel" style="margin-top:16px;">
-        <!-- display experiment metadata -->
-        <p><b>target:</b> {{ target_name }}</p>
-        <p><b>module:</b> {{ exp.module_id }}</p>
-        <p><b>attempts:</b> {{ exp.attempts }}</p>
-        <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
-        <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
-        <p><b>description:</b> {{ exp.description if exp.description else "none" }}</p>
-        <p><b>notes:</b> {{ exp.notes if exp.notes else "none" }}</p>
+        <h2>Experiment Overview</h2>
+
+        <div class="grid" style="grid-template-columns:repeat(2, minmax(0,1fr));">
+          <div class="card" style="padding:16px;">
+            <div class="card-label">Dry Run</div>
+            <div class="card-value" style="font-size:22px;">{{ "Yes" if exp.dry_run else "No" }}</div>
+            <div class="card-hint">Safe execution mode</div>
+          </div>
+
+          <div class="card" style="padding:16px;">
+            <div class="card-label">Created</div>
+            <div class="card-value" style="font-size:20px;">
+              {{ exp.created_at_label if exp.created_at_label is defined else exp.created_at }}
+            </div>
+            <div class="card-hint">Saved experiment timestamp</div>
+          </div>
+        </div>
+
+        <div class="grid" style="grid-template-columns:repeat(2, minmax(0,1fr)); margin-top:16px;">
+          <div class="panel" style="padding:16px;">
+            <h2 style="font-size:15px; margin-bottom:10px;">Description</h2>
+            <p style="margin:0; color:var(--muted);">
+              {{ exp.description if exp.description else "No description provided." }}
+            </p>
+          </div>
+
+          <div class="panel" style="padding:16px;">
+            <h2 style="font-size:15px; margin-bottom:10px;">Notes</h2>
+            <p style="margin:0; color:var(--muted);">
+              {{ exp.notes if exp.notes else "No notes provided." }}
+            </p>
+          </div>
+        </div>
 
         {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
-          <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
+          <div style="margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <form method="post" action="{{ url_for('start_experiment', experiment_id=(exp._id|string)) }}">
-              <button class="btn-primary" type="submit">start / rerun module</button>
+              <button class="btn-primary" type="submit">
+                <i class="fa-solid fa-play"></i>
+                Start / Rerun Module
+              </button>
             </form>
           </div>
         {% endif %}
+      </div>
 
-        {% if exp.results %}
-          <div style="margin-top:16px;">
-            <h2 style="margin:0 0 10px 0; font-size:16px;">Results</h2>
-            <p><b>mode:</b> {{ exp.results.mode }}</p>
-            <p><b>avg throughput:</b> {{ exp.results.avg_throughput_kbps }} kbps</p>
-            <p><b>avg detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
-            <p><b>guidance:</b> {{ exp.results.guidance }}</p>
-            <p><b>samples:</b> {{ exp.results.sample_count }}</p>
-            {% if exp.results.success_rate_percent is defined %}
-              <p><b>success rate:</b> {{ exp.results.success_rate_percent }}%</p>
-            {% endif %}
-            {% if exp.results.status_counts is defined %}
-              <p><b>status counts:</b> {{ exp.results.status_counts }}</p>
-            {% endif %}
+      {% if exp.results %}
+        <div class="panel" style="margin-top:16px;">
+          <h2>Results Summary</h2>
+
+          <section class="grid cards" style="margin-top:0;">
+            <div class="card">
+              <div class="card-label">Mode</div>
+              <div class="card-value" style="font-size:22px;">{{ exp.results.mode }}</div>
+              <div class="card-hint">Execution mode</div>
+            </div>
+
+            <div class="card">
+              <div class="card-label">Average Throughput</div>
+              <div class="card-value">{{ exp.results.avg_throughput_kbps }}</div>
+              <div class="card-hint">kbps</div>
+            </div>
+
+            <div class="card">
+              <div class="card-label">Average Detectability</div>
+              <div class="card-value">{{ exp.results.avg_detectability_score }}</div>
+              <div class="card-hint">Detection score</div>
+            </div>
+
+            <div class="card">
+              <div class="card-label">Risk Level</div>
+              <div class="card-value" style="font-size:22px;">
+                {{ exp.results.risk_band if exp.results.risk_band is defined else exp.risk_band if exp.risk_band is defined else "n/a" }}
+              </div>
+              <div class="card-hint">Overall run profile</div>
+            </div>
+          </section>
+
+          <div class="grid" style="grid-template-columns:repeat(2, minmax(0,1fr)); margin-top:16px;">
+            <div class="panel" style="padding:16px;">
+              <h2 style="font-size:15px; margin-bottom:10px;">Guidance</h2>
+              <p style="margin:0; color:var(--muted);">{{ exp.results.guidance }}</p>
+            </div>
+
+            <div class="panel" style="padding:16px;">
+              <h2 style="font-size:15px; margin-bottom:10px;">Run Metadata</h2>
+              <p style="margin:0 0 6px 0;"><b>Samples:</b> {{ exp.results.sample_count }}</p>
+              {% if exp.results.throughput_detectability_efficiency is defined %}
+                <p style="margin:0 0 6px 0;"><b>Efficiency:</b> {{ exp.results.throughput_detectability_efficiency }}</p>
+              {% endif %}
+              {% if exp.results.success_rate_percent is defined %}
+                <p style="margin:0 0 6px 0;"><b>Success Rate:</b> {{ exp.results.success_rate_percent }}%</p>
+              {% endif %}
+              {% if exp.results.status_counts is defined %}
+                <p style="margin:0;"><b>Status Counts:</b> {{ exp.results.status_counts }}</p>
+              {% endif %}
+            </div>
           </div>
-        {% endif %}
 
-        <!-- action buttons -->
-        <div style="margin-top:14px; display:flex; gap:10px;">
-          <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">dashboard</a>
-          <a class="btn-primary" href="{{ url_for('experiment_builder', target_id=(exp.target_id|string), module_id=exp.module_id, attempts=exp.attempts, rate_limit=exp.rate_limit, dry_run=exp.dry_run) }}">reuse config</a>
+          {% if exp.results.samples is defined and exp.results.samples %}
+            <div style="margin-top:20px;">
+              <h2 style="margin:0 0 12px 0;">Sample Metrics</h2>
+              <div style="overflow-x:auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Trial</th>
+                      {% if exp.module_id == "dns" %}
+                        <th>QPS</th>
+                        <th>Payload Bytes</th>
+                        <th>Packet Loss %</th>
+                        <th>Entropy</th>
+                      {% endif %}
+                      {% if exp.module_id == "brute force" %}
+                        <th>Username</th>
+                        <th>Status</th>
+                      {% endif %}
+                      <th>Throughput kbps</th>
+                      <th>Detectability</th>
+                      <th>Risk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for sample in exp.results.samples %}
+                      <tr>
+                        <td>{{ sample.trial }}</td>
+
+                        {% if exp.module_id == "dns" %}
+                          <td>{{ sample.queries_per_second }}</td>
+                          <td>{{ sample.payload_bytes }}</td>
+                          <td>{{ sample.packet_loss_percent }}</td>
+                          <td>{{ sample.entropy_score if sample.entropy_score is defined else "n/a" }}</td>
+                        {% endif %}
+
+                        {% if exp.module_id == "brute force" %}
+                          <td>{{ sample.username }}</td>
+                          <td>{{ sample.status }}</td>
+                        {% endif %}
+
+                        <td>{{ sample.throughput_kbps }}</td>
+                        <td>{{ sample.detectability_score }}</td>
+                        <td>{{ sample.risk_band if sample.risk_band is defined else "n/a" }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          {% endif %}
         </div>
+      {% else %}
+        <div class="panel" style="margin-top:16px;">
+          <h2>Results</h2>
+          <p class="panel-hint">No results yet. Run the experiment to generate metrics.</p>
+        </div>
+      {% endif %}
+
+      <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+        <a class="btn-secondary" href="{{ url_for('experiment_history') }}">History</a>
       </div>
     </main>
 
     <aside class="right-sidebar" id="rightSidebar">
       <section class="section" style="height:100%">
-        <h3>actions</h3>
+        <h3>Actions</h3>
         <div class="button-group">
-          <a class="item" href="{{ url_for('logout') }}">logout</a>
+          <a class="item" href="{{ url_for('logout') }}">Logout</a>
         </div>
       </section>
     </aside>
   </div>
 </body>
 </html>
-
