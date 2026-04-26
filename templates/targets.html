@@ -4,17 +4,21 @@
   <meta charset="utf-8" />
   <title>Targets</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
+  <!-- Noah - JS style for the buttons used and other things used -->
   <style>
+    /* success button style */
     .btn-success {
       background: rgba(73,209,122,.12);
       border: 1px solid rgba(73,209,122,.25);
       color: var(--text);
     }
+    /* danger button style */
     .btn-danger {
       background: rgba(220,38,38,.12);
       border: 1px solid rgba(220,38,38,.25);
       color: var(--text);
     }
+    /* normal button style */
     button {
       padding: 6px 10px;
       border: none;
@@ -24,6 +28,7 @@
       font-weight: 300;
       transition: all 0.2s;
     }
+    /* filter button style */
     .filter-btn {
       padding: 6px 10px;
       border: none;
@@ -34,15 +39,18 @@
       transition: all 0.2s;
       color: white;
     }
+    /* approved/revoked button style */
     .filter-btn.approved {background: rgba(73,209,122,.12); border: 1px solid rgba(73,209,122,.25);}
     .filter-btn.revoked {background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.25);}
     
+    /* 2nd normal button style */
     .btn-norm {
         background: rgba(110,168,254,.25);
         color: var(--text);
         border: 1px solid rgba(110,168,254,.35);
     }
 
+    /* style for being able to scroll for the tables/containers */
      .scroll-panel {
         background: rgba(17,26,46,.75);
         border: 1px solid var(--border);
@@ -124,6 +132,7 @@
             <div id="target-{{ t._id }}" class="item" style="display:flex; justify-content:space-between; align-items:center;">
               <div>
                 <b>{{ t.name }}</b><br>
+                <!-- Noah - sets up toggle whitelist button based on if the target is whitelisted or not -->
                 <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span>
                   <!-- <form method="POST" action="{{ url_for('target_and_whitelist.toggle_whitelist_route', target_id=t._id) }}">
                     <button type="submit"> -->
@@ -135,6 +144,7 @@
                         Whitelist
                       {% endif %}
                     </button>
+                    <!-- Noah - button for the being able to delete a target from the targets you made -->
                     <button onclick="deleteTarget('{{ t._id }}')" class="btn-danger">
                     Delete target
                   </button>
@@ -147,13 +157,14 @@
         {% endif %}
       </div>
 
-      <!-- Whitelisted targets -->
+      <!-- Noah F - Whitelisted targets -->
        <div class="panel scroll-panel whitelist-container" style="margin-top:16px;">
           <!-- <div class="panel" style="margin-top:16px;"> -->
         <h2 style="margin:0 0 10px 0; font-size:16px;">Whitelisted targets - Can be experimented on</h2>
           {% if whitelisted_targets|length == 0 %}
             <p style="color: var(--muted);">No whitelisted targets</p>
           {% else %}
+          <!-- displays a list of the whitelisted targets that the user made -->
             {% for t in whitelisted_targets %}
               <div class="item" style="display:flex; justify-content:space-between; align-items:center;">
                 <b> {{ t.name }}</b>
@@ -162,12 +173,11 @@
            {% endif %}
       </div>
 
-      <!-- Targets by status -->
+      <!-- Noah - Targets by status -->
       <div class="panel scroll-panel" style="margin-top:16px;">
         <h2 style="margin:0 0 10px 0; font-size:16px;">Targets by status</h2>
-        <!-- <h5>Pending targets</h5>
-        <h5>Approved targets</h5>
-        <h5>Revoked targets</h5> -->
+        
+        <!-- Acts as a filter for the user to choose if they want to see the list of all targets, revoked, or pending -->
         <div style="margin-bottom:10px">
           <button class="btn-norm" onclick="showTargetStatus('all')">All targets</button>
           <button class="btn-norm" onclick="showTargetStatus('pending')">Pending targets</button>
@@ -182,8 +192,11 @@
 </body>
 </html>
 
+<!-- Noah : JS functions used for the page for better UX-->
 <script>
   let baseStatus = null
+
+  // js function to show the status of the target for the target by status using the route
   function showTargetStatus(status){
     if (baseStatus){
       filterStatus(status);
@@ -199,6 +212,7 @@
       
   }
 
+  //js fucntion to filter for each status for the target
   function filterStatus(status){
     const statusContainer = document.getElementById("status-container");
     statusContainer.innerHTML = "";
@@ -241,6 +255,8 @@
       })
     }
   }
+
+  //js function to use the whitelist toggle for the user to toggle between whitelist and unewhitelist
   function toggleWhitelist(id){
     if (!confirm("Are you sure?")) return;
       fetch(`/toggle_target/${id}`, {
@@ -261,6 +277,7 @@
       
     }
 
+    //js function to update the whitelisted list showing the user's whitelisted targets
     function whitelistUpdate(id){
       fetch("/whitelisted_target_list")
       .then(response => response.json())
@@ -279,6 +296,7 @@
       });
     }
 
+    //function for deleting a target on the targets page 
     function deleteTarget(id){
       if (!confirm('Are you sure you want to delete this target?')) {
         return;
