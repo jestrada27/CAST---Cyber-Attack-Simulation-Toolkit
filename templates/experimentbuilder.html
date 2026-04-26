@@ -122,6 +122,166 @@
           </label>
 
           <label class="field checkbox">
+            <input type="checkbox" name="experiment_approved" {% if selected_safety.experiment_approved %}checked{% endif %}>
+            <span>Experiment approved for execution</span>
+          </label>
+
+          <label class="field">
+            <span>approved_users</span>
+            <input type="text" name="approved_users" value="{{ selected_safety.approved_users }}" placeholder="{{ username }}">
+          </label>
+
+          <label class="field">
+            <span>allowed_ips</span>
+            <input type="text" name="allowed_ips" value="{{ selected_safety.allowed_ips }}" placeholder="127.0.0.1, 10.0.0.5">
+          </label>
+
+          <label class="field">
+            <span>allowed_ports</span>
+            <input type="text" name="allowed_ports" value="{{ selected_safety.allowed_ports }}" placeholder="80, 443, 53">
+          </label>
+
+          <label class="field">
+            <span>allowed_urls</span>
+            <input type="text" name="allowed_urls" value="{{ selected_safety.allowed_urls }}" placeholder="http://127.0.0.1:5001/login">
+          </label>
+
+          <label class="field">
+            <span>allowed_accounts</span>
+            <input type="text" name="allowed_accounts" value="{{ selected_safety.allowed_accounts }}" placeholder="alice, bob">
+          </label>
+
+          <label class="field">
+            <span>allowed_services</span>
+            <input type="text" name="allowed_services" value="{{ selected_safety.allowed_services }}" placeholder="auth, http, dns">
+          </label>
+
+          <label class="field">
+            <span>max_duration_seconds</span>
+            <input type="number" name="max_duration_seconds" value="{{ selected_safety.max_duration_seconds }}" min="5" max="3600">
+          </label>
+
+          <label class="field">
+            <span>scheduled_end</span>
+            <input type="datetime-local" name="scheduled_end" value="{{ selected_safety.scheduled_end }}">
+          </label>
+
+          <label class="field">
+            <span>requests_per_minute</span>
+            <input type="number" name="requests_per_minute" value="{{ selected_safety.requests_per_minute }}" min="1" max="500">
+          </label>
+
+          <label class="field">
+            <span>login_attempts_per_minute</span>
+            <input type="number" name="login_attempts_per_minute" value="{{ selected_safety.login_attempts_per_minute }}" min="1" max="500">
+          </label>
+
+          <label class="field">
+            <span>payloads_per_minute</span>
+            <input type="number" name="payloads_per_minute" value="{{ selected_safety.payloads_per_minute }}" min="1" max="500">
+          </label>
+
+          <label class="field">
+            <span>bandwidth_kbps</span>
+            <input type="number" name="bandwidth_kbps" value="{{ selected_safety.bandwidth_kbps }}" step="0.1" min="1" max="5000">
+          </label>
+
+          <label class="field">
+            <span>packet_volume_per_minute</span>
+            <input type="number" name="packet_volume_per_minute" value="{{ selected_safety.packet_volume_per_minute }}" min="1" max="5000">
+          </label>
+
+          <label class="field">
+            <span>max_detectability_score</span>
+            <input type="number" name="max_detectability_score" value="{{ selected_safety.max_detectability_score }}" step="0.1" min="1" max="100">
+          </label>
+
+          <label class="field">
+            <span>max_scope_violations</span>
+            <input type="number" name="max_scope_violations" value="{{ selected_safety.max_scope_violations }}" min="0" max="25">
+          </label>
+
+          <label class="field">
+            <span>max_alerts</span>
+            <input type="number" name="max_alerts" value="{{ selected_safety.max_alerts }}" min="1" max="50">
+          </label>
+
+          <label class="field">
+            <span>max_unexpected_targets</span>
+            <input type="number" name="max_unexpected_targets" value="{{ selected_safety.max_unexpected_targets }}" min="0" max="10">
+          </label>
+
+          <label class="field">
+            <span>kill_switch</span>
+            <select name="kill_switch_enabled">
+              <option value="on" {% if selected_safety.kill_switch_enabled %}selected{% endif %}>enabled</option>
+              <option value="off" {% if not selected_safety.kill_switch_enabled %}selected{% endif %}>disabled</option>
+            </select>
+          </label>
+
+          <label class="field bruteforce-only-field">
+            <span>bf_max_attempts_per_account</span>
+            <input type="number" name="bf_max_attempts_per_account" value="{{ selected_safety.bf_max_attempts_per_account }}" min="1" max="20">
+          </label>
+
+          <label class="field xss-only-field">
+            <span>xss_safe_payloads_only</span>
+            <select name="xss_safe_payloads_only">
+              <option value="on" {% if selected_safety.xss_safe_payloads_only %}selected{% endif %}>enabled</option>
+              <option value="off" {% if not selected_safety.xss_safe_payloads_only %}selected{% endif %}>disabled</option>
+            </select>
+          </label>
+
+          <label class="field xss-only-field">
+            <span>xss_safe_payloads</span>
+            <input type="text" name="xss_safe_payloads" value="{{ selected_safety.xss_safe_payloads }}" placeholder="<script>alert(1)</script>, <svg onload=alert(1)>">
+          </label>
+
+          <label class="field sqli-only-field">
+            <span>sqli_probe_only</span>
+            <select name="sqli_probe_only">
+              <option value="on" {% if selected_safety.sqli_probe_only %}selected{% endif %}>enabled</option>
+              <option value="off" {% if not selected_safety.sqli_probe_only %}selected{% endif %}>disabled</option>
+            </select>
+          </label>
+
+          <label class="field replay-only-field">
+            <span>replay_lab_only</span>
+            <select name="replay_lab_only">
+              <option value="on" {% if selected_safety.replay_lab_only %}selected{% endif %}>enabled</option>
+              <option value="off" {% if not selected_safety.replay_lab_only %}selected{% endif %}>disabled</option>
+            </select>
+          </label>
+
+          <label class="field replay-only-field">
+            <span>replay_max_replays</span>
+            <input type="number" name="replay_max_replays" value="{{ selected_safety.replay_max_replays }}" min="1" max="100">
+          </label>
+
+          <label class="field checkbox replay-only-field">
+            <input type="checkbox" name="replay_allow_state_change" {% if selected_safety.replay_allow_state_change %}checked{% endif %}>
+            <span>Allow replay state-changing methods</span>
+          </label>
+
+          <label class="field dns-only-field">
+            <span>dns_lab_only</span>
+            <select name="dns_lab_only">
+              <option value="on" {% if selected_safety.dns_lab_only %}selected{% endif %}>enabled</option>
+              <option value="off" {% if not selected_safety.dns_lab_only %}selected{% endif %}>disabled</option>
+            </select>
+          </label>
+
+          <label class="field dns-only-field">
+            <span>dns_max_payload_bytes</span>
+            <input type="number" name="dns_max_payload_bytes" value="{{ selected_safety.dns_max_payload_bytes }}" min="32" max="512">
+          </label>
+
+          <label class="field dns-only-field">
+            <span>dns_max_queries_per_second</span>
+            <input type="number" name="dns_max_queries_per_second" value="{{ selected_safety.dns_max_queries_per_second }}" step="0.1" min="0.1" max="25">
+          </label>
+
+          <label class="field checkbox">
             <input type="checkbox" name="dry_run" {% if selected_dry_run %}checked{% endif %}>
             <span>Dry Run</span>
           </label>
@@ -134,5 +294,30 @@
       </div>
     </main>
   </div>
+  <script>
+    const moduleSelect = document.querySelector('select[name="module_id"]');
+    const moduleFieldGroups = {
+      'brute force': document.querySelectorAll('.bruteforce-only-field'),
+      'xss': document.querySelectorAll('.xss-only-field'),
+      'sqli': document.querySelectorAll('.sqli-only-field'),
+      'replay': document.querySelectorAll('.replay-only-field'),
+      'dns': document.querySelectorAll('.dns-only-field')
+    };
+
+    function toggleModuleFields() {
+      const selectedModule = moduleSelect ? moduleSelect.value : '';
+      Object.entries(moduleFieldGroups).forEach(([moduleId, fields]) => {
+        const showFields = selectedModule === moduleId;
+        fields.forEach((field) => {
+          field.style.display = showFields ? '' : 'none';
+        });
+      });
+    }
+
+    if (moduleSelect) {
+      moduleSelect.addEventListener('change', toggleModuleFields);
+      toggleModuleFields();
+    }
+  </script>
 </body>
 </html>

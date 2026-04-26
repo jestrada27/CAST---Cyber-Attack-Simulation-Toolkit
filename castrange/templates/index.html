@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>EmployeeHub</h1>
+<p>Internal company directory.</p>
+<ul>
+  <li><a href="{{ url_for('auth.login') }}">Sign in</a></li>
+  <li><a href="{{ url_for('search.search') }}">Search employees</a></li>
+</ul>
+<p class="muted">Try: <code>admin / admin</code> or <code>test / test</code></p>
+{% endblock %}

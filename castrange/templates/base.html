@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}EmployeeHub{% endblock %}</title>
+<style>
+body{font-family:system-ui,Arial,sans-serif;max-width:780px;margin:1.5em auto;padding:0 1em;background:#fafafa;color:#222}
+.banner{background:#fff3cd;border:1px solid #ffc107;padding:0.5em 0.8em;border-radius:4px;font-size:0.85em;margin-bottom:1em}
+header{background:#b71c1c;color:#fff;padding:0.6em 1em;border-radius:4px;margin-bottom:1em;display:flex;justify-content:space-between;align-items:center}
+header a{color:#fff}
+input,button{padding:0.4em 0.6em;font-size:1em}
+table{border-collapse:collapse;width:100%;background:#fff;margin-top:0.6em}
+td,th{border:1px solid #ddd;padding:0.4em 0.6em;text-align:left}
+.error{color:#b00;background:#fee;border:1px solid #fbb;padding:0.5em;border-radius:4px;font-family:monospace;white-space:pre-wrap}
+.muted{color:#777;font-size:0.85em}
+</style>
+</head>
+<body>
+<div class="banner"><strong>CASTRange</strong> — deliberately vulnerable target. Local use only.</div>
+<header>
+  <strong>EmployeeHub</strong>
+  <span>
+    {% if session.get('username') %}
+      Signed in as {{ session.get('username') }} ({{ session.get('role') }}) ·
+      <a href="{{ url_for('auth.logout') }}">logout</a>
+    {% else %}
+      <a href="{{ url_for('auth.login') }}">login</a>
+    {% endif %}
+  </span>
+</header>
+{% block content %}{% endblock %}
+</body>
+</html>

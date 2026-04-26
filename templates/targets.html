@@ -45,13 +45,51 @@
         <form method="post" class="form-grid">
           <label class="field">
             <span>name</span>
-            <input name="name" placeholder="localtestapp" required>
+            <input name="name" placeholder="localtestapp" value="{{ form_state.name }}" required>
           </label>
 
           <!-- target IP or URL -->
           <label class="field">
             <span>ip_or_url</span>
-            <input name="ip_or_url" placeholder="http://127.0.0.1:5001" required>
+            <input name="ip_or_url" placeholder="http://127.0.0.1:5001" value="{{ form_state.ip_or_url }}" required>
+          </label>
+
+          <label class="field">
+            <span>environment</span>
+            <select name="environment">
+              <option value="lab" {% if form_state.environment == "lab" %}selected{% endif %}>lab</option>
+              <option value="staging" {% if form_state.environment == "staging" %}selected{% endif %}>staging</option>
+              <option value="production-like" {% if form_state.environment == "production-like" %}selected{% endif %}>production-like</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>consent_status</span>
+            <select name="consent_status">
+              <option value="approved" {% if form_state.consent_status == "approved" %}selected{% endif %}>approved</option>
+              <option value="pending" {% if form_state.consent_status == "pending" %}selected{% endif %}>pending</option>
+              <option value="revoked" {% if form_state.consent_status == "revoked" %}selected{% endif %}>revoked</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>allowed_services</span>
+            <input name="allowed_services" placeholder="http, auth, dns" value="{{ form_state.allowed_services }}">
+          </label>
+
+          <label class="field">
+            <span>allowed_ports</span>
+            <input name="allowed_ports" placeholder="80, 443, 53" value="{{ form_state.allowed_ports }}">
+          </label>
+
+          <label class="field">
+            <span>allowed_accounts</span>
+            <input name="allowed_accounts" placeholder="student1, student2" value="{{ form_state.allowed_accounts }}">
+          </label>
+
+          <label class="field">
+            <span>approved_users</span>
+            <input name="approved_users" placeholder="{{ username }}" value="{{ form_state.approved_users }}">
           </label>
 
           <div class="actions">
@@ -67,12 +105,14 @@
 
         {% if targets|length == 0 %}
           <p style="color: var(--muted);">No targets yet</p>
-        {% else %}
+          {% else %}
           {% for t in targets %}
             <div class="item" style="display:flex; justify-content:space-between; align-items:center;">
               <div>
                 <b>{{ t.name }}</b><br>
-                <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span>
+                <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span><br>
+                <span style="color:var(--muted); font-size:12px;">env: {{ t.environment or "lab" }} | services: {{ (t.allowed_services or [])|join(", ") if t.allowed_services else "default" }}</span><br>
+                <span style="color:var(--muted); font-size:12px;">ports: {{ (t.allowed_ports or [])|join(", ") if t.allowed_ports else "any" }} | approved users: {{ (t.approved_users or [])|join(", ") if t.approved_users else username }}</span>
               </div>
               <!-- consent status pill -->
               <span class="pill">{{ t.consent_status }}</span>

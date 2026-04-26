@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<h1>Employee search</h1>
+<form method="GET" action="{{ url_for('search.search') }}">
+  <input name="q" value="{{ q }}" placeholder="search by name">
+  <button type="submit">Search</button>
+</form>
+
+{% if q %}
+  {# V2 reflected XSS sink: q rendered with |safe #}
+  <h2>You searched for: {{ q|safe }}</h2>
+{% endif %}
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+{% if results %}
+  <table>
+    <tr><th>ID</th><th>Name</th><th>Department</th><th>Title</th></tr>
+    {% for r in results %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.name }}</td>
+        <td>{{ r.department }}</td>
+        <td>{{ r.title }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+{% elif q and not error %}
+  <p class="muted">No results.</p>
+{% endif %}
+{% endblock %}

@@ -64,6 +64,9 @@
       <div class="panel" style="margin-top:16px;">
         <!-- display experiment metadata -->
         <p><b>target:</b> {{ target_name }}</p>
+        <p><b>target endpoint:</b> {{ target.ip_or_url if target.ip_or_url else "unknown" }}</p>
+        <p><b>target environment:</b> {{ target.environment if target.environment else "lab" }}</p>
+        <p><b>target consent:</b> {{ target.consent_status if target.consent_status else "pending" }}</p>
         <p><b>module:</b> {{ exp.module_id }}</p>
         <p><b>attempts:</b> {{ exp.attempts }}</p>
         <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
@@ -76,6 +79,10 @@
             <form method="post" action="{{ url_for('start_experiment', experiment_id=(exp._id|string)) }}">
               <button class="btn-primary" type="submit">start / rerun module</button>
             </form>
+            <form method="post" action="{{ url_for('trigger_experiment_kill_switch', experiment_id=(exp._id|string)) }}">
+              <button class="btn-secondary" type="submit">engage kill switch</button>
+            </form>
+            <a class="btn-secondary" href="{{ url_for('experiment_safety_report', experiment_id=(exp._id|string)) }}">view safety report json</a>
           </div>
         {% endif %}
 
@@ -96,10 +103,58 @@
           </div>
         {% endif %}
 
+        {% if exp.safety %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Safety policy</h2>
+            <p><b>approved users:</b> {{ (exp.safety.authorization.approved_users or [])|join(", ") if exp.safety.authorization is defined else "none" }}</p>
+            <p><b>allowed ips:</b> {{ (exp.safety.scope.allowed_ips or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
+            <p><b>allowed ports:</b> {{ (exp.safety.scope.allowed_ports or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
+            <p><b>allowed urls:</b> {{ (exp.safety.scope.allowed_urls or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
+            <p><b>allowed accounts:</b> {{ (exp.safety.scope.allowed_accounts or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
+            <p><b>allowed services:</b> {{ (exp.safety.scope.allowed_services or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
+            <p><b>requests per minute:</b> {{ exp.safety.rate_limit.requests_per_minute if exp.safety.rate_limit is defined else "n/a" }}</p>
+            <p><b>login attempts per minute:</b> {{ exp.safety.rate_limit.login_attempts_per_minute if exp.safety.rate_limit is defined else "n/a" }}</p>
+            <p><b>payloads per minute:</b> {{ exp.safety.rate_limit.payloads_per_minute if exp.safety.rate_limit is defined else "n/a" }}</p>
+            <p><b>bandwidth cap:</b> {{ exp.safety.rate_limit.bandwidth_kbps if exp.safety.rate_limit is defined else "n/a" }} kbps</p>
+            <p><b>packet cap:</b> {{ exp.safety.rate_limit.packet_volume_per_minute if exp.safety.rate_limit is defined else "n/a" }} packets/min</p>
+            <p><b>duration cap:</b> {{ exp.safety.time_limit.max_duration_seconds if exp.safety.time_limit is defined else "n/a" }} seconds</p>
+            <p><b>scheduled end:</b> {{ exp.safety.time_limit.scheduled_end if exp.safety.time_limit is defined and exp.safety.time_limit.scheduled_end else "not set" }}</p>
+            <p><b>kill switch:</b> {{ "engaged" if exp.safety.kill_switch is defined and exp.safety.kill_switch.engaged else "ready" }}</p>
+          </div>
+        {% endif %}
+
+        {% if exp.results and exp.results.safety_report %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Safety audit</h2>
+            <p><b>summary:</b> {{ exp.results.safety_report.summary }}</p>
+            <p><b>kill switch engaged:</b> {{ "yes" if exp.results.safety_report.kill_switch_engaged else "no" }}</p>
+            <p><b>kill reason:</b> {{ exp.results.safety_report.kill_reason if exp.results.safety_report.kill_reason else "none" }}</p>
+            <p><b>decision counts:</b> {{ exp.results.safety_report.decision_counts }}</p>
+            <p><b>scope violations:</b> {{ exp.results.safety_report.scope_violations }}</p>
+            <p><b>total requests watched:</b> {{ exp.results.safety_report.total_requests }}</p>
+            <p><b>targets touched:</b> {{ (exp.results.safety_report.targets_touched or [])|join(", ") if exp.results.safety_report.targets_touched else "none" }}</p>
+            {% if exp.results.safety_report.user_alerts %}
+              <p><b>alerts:</b> {{ exp.results.safety_report.user_alerts|join(" | ") }}</p>
+            {% endif %}
+            {% if exp.results.safety_report.events_for_view %}
+              <div style="margin-top:12px;">
+                <h3 style="margin:0 0 8px 0; font-size:14px;">Safety events</h3>
+                {% for event in exp.results.safety_report.events_for_view %}
+                  <div class="item" style="white-space:normal;">
+                    <b>{{ event.time_label }}</b><br>
+                    <span style="color:var(--muted); font-size:12px;">{{ event.decision }} | {{ event.phase }} | {{ event.code }}</span><br>
+                    <span>{{ event.message }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+
         <!-- action buttons -->
         <div style="margin-top:14px; display:flex; gap:10px;">
           <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">dashboard</a>
-          <a class="btn-primary" href="{{ url_for('experiment_builder', target_id=(exp.target_id|string), module_id=exp.module_id, attempts=exp.attempts, rate_limit=exp.rate_limit, dry_run=exp.dry_run) }}">reuse config</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder', experiment_id=(exp._id|string)) }}">reuse config</a>
         </div>
       </div>
     </main>
