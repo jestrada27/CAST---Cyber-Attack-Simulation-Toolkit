@@ -47,7 +47,7 @@ app.register_blueprint(reports_bp)
 
 # from xss_attack import xss_bp
 # app.register_blueprint(xss_bp)
-
+#Noah - setup for blueprints for operator and reg_and_whitelist
 from operator_controls import operator_bp
 app.register_blueprint(operator_bp)
 
@@ -673,7 +673,7 @@ def experiment_builder():
                 selected_dry_run=dry_run
             )
 
-        target_exists = collection_targets.find_one({"_id": target_object_id, "owner": username}, {"_id": 1, "consent_status": 1})
+        target_exists = collection_targets.find_one({"_id": target_object_id, "owner": username}, {"_id": 1, "consent_status": 1}) #noah - finds target
         if not target_exists:
             flash("Selected target was not found for your account.", "danger")
             return render_template(
@@ -689,7 +689,7 @@ def experiment_builder():
                 selected_dry_run=dry_run
             )
         
-        
+        #Noah - checks for approval if not, means not whitelisted
         if target_exists.get("consent_status") != "approved":
             flash("Target is not whitelisted.", "danger")
         #     return redirect(url_for("experiment_builder"))
@@ -739,6 +739,9 @@ def experiment_builder():
             # "experiment_id": experiment_object_id
 
         })
+        #checks for admin
+        is_admin = any(group.get("group_id") == ObjectId(group_id) and group.get("role") == "admin" for group in user_group)
+        request_status = "approved" if is_admin else "pending"
         if request_exist_check:
             return False, "Request exists"
         #     collection_requests.insert_one({
@@ -750,7 +753,7 @@ def experiment_builder():
         #         "status": "pending",
         #         "created_at": datetime.utcnow()
         # })
-        elif not request_exist_check:
+        else:
         #Noah - inserts info for attack requests 
             collection_requests.insert_one({
                 #user_id?
@@ -758,10 +761,14 @@ def experiment_builder():
                 "group_id": ObjectId(group_id),
                 "submitted_by": ObjectId(session["user_id"]),
                 "username": session["username"],
-                "status": "pending",
+                "status": request_status,
                 "created_at": datetime.utcnow()
             })
-        flash("Experiment created. Waiting for approval.", "success")
+        # admin check for if admin
+        if is_admin:
+            flash("Experiment approved - admin detected.")
+        else:
+            flash("Experiment created. Waiting for approval.", "success")
         return redirect(url_for("experimentdetails", experiment_id=str(inserted_id)))
 
         # Run the selected module immediately when a runner is available.
@@ -807,14 +814,14 @@ def targets():
     res = ensure_user_logged_in()
     if res is not None:
         return res
-    from reg_and_whitelist.registrate_whitelist import target_validation, target_by_status_list
+    from reg_and_whitelist.registrate_whitelist import target_validation, target_by_status_list #Noah: gets functions from blueprint
     username = session["username"]
 
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         ip_or_url = (request.form.get("ip_or_url") or "").strip()
         
-        #if not name or not ip_or_url:
+        #if not name or not ip_or_url: #Noah - checks for valid target using target validation
         valid_target, message = target_validation(name, ip_or_url, username)
         if not valid_target:
             #flash("name and ip_or_url are required.", "danger")
@@ -881,6 +888,7 @@ def experimentdetails(experiment_id):
         if group_doc:
             group_name = group_doc.get("name", "Unknown")
 
+    # Noah - gets the request doc and formats it correctly
     request_doc = collection_requests.find_one({"experiment_id": experiment_object_id, 
     "group_id": exp.get("group_id")})
     if request_doc:
@@ -942,16 +950,17 @@ def start_experiment(experiment_id):
     #     flash("Experment not approved.", "danger")
     #     return redirect(url_for("experimentdetails", experiment_id=experiment_id))
 
+    #Noah - gets target in the database
     target_exists = collection_targets.find_one({
         "_id": exp["target_id"],
         "owner": username
     }, {"consent_status": 1})
 
-
+    #if doesnt exist goes back to experimentdetails
     if not target_exists:
         flash("Target no longer exists.", "danger")
         return redirect(url_for("experimentdetails", experiment_id=experiment_id))
-
+    #if not approved then cant, else if then its approved
     if target_exists.get("consent_status") != "approved":
         flash("Target is not whitelisted.", "danger")
         return redirect(url_for("experimentdetails", experiment_id=experiment_id))
