@@ -9,7 +9,7 @@ whitelist_bp = Blueprint("target_and_whitelist", __name__)
 
 #route for the target to be whitelisted in the app so that it can be attacked and not if not whitelisted
 @whitelist_bp.route("/target_whitelist/<target_id>", methods=["POST"])
-def whitelist_target_route(target_id):
+def whitelist_target_route(target_id): #(replaced by toggle route)
     if "username" not in session:
        return {"success": False, "message": "Not logged in"}, 401
     
@@ -53,7 +53,7 @@ def whitelisted_list_route():
 
 
 @whitelist_bp.route("/target_unwhitelist/<target_id>", methods=["POST"])
-def remove_whitelist_target_route(target_id):
+def remove_whitelist_target_route(target_id): #(replaced by toggle route)
     if "username" not in session:
        return {"success": False, "message": "Not logged in"}, 401
     
@@ -66,6 +66,8 @@ def remove_whitelist_target_route(target_id):
     return jsonify({"success": unwhitelisted_target, "message": message})
 
 
+# Noah F
+# toggle route for the whitelisting or unwhitelisting to be done
 @whitelist_bp.route("/toggle_target/<target_id>", methods=["POST"])
 def toggle_whitelist_route(target_id):
     if "username" not in session:
@@ -80,6 +82,7 @@ def toggle_whitelist_route(target_id):
     # return redirect(url_for("targets"))
 
 
+#route for the statuses of the target
 @whitelist_bp.route("/status_target", methods=["GET"])
 def whitelist_status_route():
     if "username" not in session:
@@ -90,7 +93,7 @@ def whitelist_status_route():
     result = target_by_status_list(owner_name)
     return jsonify({"success": True, "targets": result})
 
-
+# route to delete an experiment
 @whitelist_bp.route("/delete_experiment/<experiment_id>", methods=["DELETE"])
 def delete_experiment_route(experiment_id):
     if "username" not in session:
@@ -102,7 +105,7 @@ def delete_experiment_route(experiment_id):
     return jsonify({"success": deleted_experiment, "message": message})
 
 
-
+#route to delete a specific target
 @whitelist_bp.route("/delete_target/<target_id>", methods=["DELETE"])
 def delete_target_route(target_id):
     if "username" not in session:
