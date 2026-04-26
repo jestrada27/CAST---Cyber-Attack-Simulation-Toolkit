@@ -7,7 +7,7 @@ from flask import jsonify
 collection_targets = database_name["targets"]
 collection_experiments = database_name["experiments"]
 
-#function to allow a target to be whitelisted
+#function to allow a target to be whitelisted (replaced by toggle)
 def whitelist_target(target_id, owner_name):
     # target_id = ObjectId(target_id)
     # if not target_id:
@@ -69,7 +69,7 @@ def get_whitelisted_targets(owner_name):
     return whitelisted_list
 
 
-#function to remove whitelist
+#function to remove whitelist (replaced by toggle)
 def remove_target_whitelist(target_id, owner_name):
 
     if not ObjectId.is_valid(target_id):
@@ -87,10 +87,10 @@ def remove_target_whitelist(target_id, owner_name):
     return True, "Removed whitelist"
 
 
-
+#Noah F
 from urllib.parse import urlparse
 import re
-
+#function to check if the provided target is a valid one based on it needing to be a valid link 
 def is_valid_target(ip_or_url):
     try:
         parsed = urlparse(ip_or_url)
@@ -104,7 +104,7 @@ def is_valid_target(ip_or_url):
         if parsed.scheme in ["http", "https"] and parsed.netloc:
             return True
         
-        if re.match("^localhost(:\d+)?$", ip_or_url):
+        if re.match(r"^localhost(:\d+)?$", ip_or_url):
             return True
         
         if re.match(r"^(\d{1,3}\.){3}\d{1,3}(:\d+)?$", ip_or_url):
@@ -117,26 +117,20 @@ def is_valid_target(ip_or_url):
     except:
         return False
     
-
+# function that applies the target validation using the is_valid_target function
 def target_validation(target_name, ip_or_url, owner_name):
     if not target_name or not ip_or_url:
         return False, "Not a valid target / not valid target data"
     
     if collection_targets.find_one({"owner": owner_name, "name": target_name}):
         return False, "Target exists"
-
-    # url_pattern = r"^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$"
-    # localhost = r"^(https?:\/\/)?localhost(:\d+)?$"
-    # ip = r"^(https?:\/\/)?(\d{1,3}\.){3}\d{1,3}(:\d+)?$"
-
-    # if not (re.match(url_pattern, ip_or_url) or re.match(localhost, ip_or_url) or re.match(ip, ip_or_url)):
-    #     return False, "Invalid URL/IP"
+    
     if not is_valid_target(ip_or_url):
         return False, "Invalid URL/IP"
     
     return True, "Valid"
     
-
+# function for targets by status
 def target_by_status_list(owner_name):
     targets_list = list(collection_targets.find({"owner": owner_name}))
     
@@ -159,7 +153,7 @@ def target_by_status_list(owner_name):
 
     return result_options
 
-
+# a toggle function for setting the whitelist on and off / whitelist and unwhitelist
 def whitelist_toggle(target_id, owner_name):
     if not ObjectId.is_valid(target_id):
         return False, "Not a target"
@@ -186,6 +180,7 @@ def whitelist_toggle(target_id, owner_name):
     return True, f"Target set to {target_new_status}"
 
 
+# function to delete an experiemnt
 def delete_experiment_target(experiment_id, owner_name):
     if not ObjectId.is_valid(experiment_id):
         return False, "Not a experiment"
@@ -200,7 +195,7 @@ def delete_experiment_target(experiment_id, owner_name):
     
     return True, "Target deleted"
 
-
+# function to delete a specific target
 def delete_target(target_id, owner_name):
     if not ObjectId.is_valid(target_id):
         return False, "Not a target"
