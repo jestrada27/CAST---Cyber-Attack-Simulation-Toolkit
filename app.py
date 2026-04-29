@@ -670,8 +670,11 @@ def run_experiment_now(experiment, target, user):
                 "message": "Brute force simulation finished.",
                 "category": status_flash_category(status),
             }
-
-        if module_id in {"sqli", "xss", "replay"}:
+        if module_id == "sqli":
+            results = run_sqli_experiment(dry_run=dry_run)
+            status = "Dry-Run Complete" if dry_run else "Completed"
+            return True, status, results, "SQL injection simulation finished"
+        if module_id in {"xss", "replay"}:
             results = run_generic_module_simulation(
                 module_id=module_id,
                 attempts=attempts,

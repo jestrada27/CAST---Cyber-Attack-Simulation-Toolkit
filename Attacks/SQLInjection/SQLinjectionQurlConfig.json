@@ -1,0 +1,10 @@
+{
+    "data": [
+        {
+            "url": "http://localhost:3000/#/search",
+            "query_fields": ["q"],
+            "method": "post",
+            "exp_res": 200
+        }
+    ]
+}
