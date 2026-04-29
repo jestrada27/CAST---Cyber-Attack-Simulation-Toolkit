@@ -6,6 +6,7 @@
   <title>experimentbuilder</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
   <script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='experimentbuilder.js') }}" defer></script>
 </head>
 
 <body>
@@ -132,6 +133,15 @@
           </div>
         </form>
       </div>
+      <select class="input" name="module_id" id="DEBUGCHOICES" required>
+      <option value="SQL">SQL</option>
+      <option value="DNS">DNS</option>
+      <option value="BruteForce">BruteForce</option>
+      <option value="XSS">XSS</option>
+      <option value="Replay">Replay</option>
+    </select>
+      <button id="DEBUGBUTTON">DEBUGCONFIGATTACK</button>
+      <div id="DEBUGCONTAINER"></div>
     </main>
   </div>
 </body>

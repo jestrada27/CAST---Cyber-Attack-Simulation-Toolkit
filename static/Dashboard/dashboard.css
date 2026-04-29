@@ -492,3 +492,71 @@ h1{margin:0 0 4px 0; font-size:28px}
     justify-content: flex-start;
   }
 }
+
+
+.container {
+  display: flex; /* makes children horizontal */
+  gap: 10px;     /* space between items */
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px;
+  margin-bottom: 10px;
+
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #f9f9f9;
+}
+
+/* Inputs */
+.config-row .input {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* Smaller number inputs */
+.config-row .small {
+  width: 80px;
+}
+
+/* Checkbox label */
+.config-row .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Remove button */
+.config-row .remove-btn {
+  margin-left: auto; /* pushes it to the far right */
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.config-row .remove-btn:hover {
+  background: #cc0000;
+}
+
+/* Accept button */
+.config-row .accept-btn {
+  margin-left: auto; /* pushes it to the far right */
+  background: #0df753;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.config-row .accept-btn:hover {
+  background: #0df753;
+}
