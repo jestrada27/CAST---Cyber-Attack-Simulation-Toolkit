@@ -11,25 +11,23 @@
       <section class="section">
         <h3>Home</h3>
         <div class="button-group">
-             <!-- main navigation links -->
           <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
-          <a class="item is-selected" href="{{ url_for('targets') }}">targets</a>
-          <a class="item" href="{{ url_for('experiment_builder') }}">new experiment</a>
-          <a class="item" href="{{ url_for('profile') }}">profile</a>
+          <a class="item is-selected" href="{{ url_for('targets') }}">Targets</a>
+          <a class="item" href="{{ url_for('experiment_builder') }}">New Experiment</a>
+          <a class="item" href="{{ url_for('experiment_history') }}">Experiment History</a>
+          <a class="item" href="{{ url_for('profile') }}">Profile</a>
         </div>
       </section>
     </aside>
 
-    <!-- page header -->
     <main class="main">
       <header class="topbar">
         <div>
           <h1>Targets</h1>
-          <p class="sub">add targets for your account only</p>
+          <p class="sub">Add and manage approved targets for your account only</p>
         </div>
       </header>
 
-      <!-- flash messages (success, errors, etc.) -->
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <div style="margin-top:12px;">
@@ -40,15 +38,15 @@
         {% endif %}
       {% endwith %}
 
-      <!-- ADD TARGET FORM -->
       <div class="panel" style="margin-top:16px;">
+        <h2 style="margin:0 0 10px 0; font-size:16px;">Add Target</h2>
+
         <form method="post" class="form-grid">
           <label class="field">
             <span>name</span>
             <input name="name" placeholder="localtestapp" value="{{ form_state.name }}" required>
           </label>
 
-          <!-- target IP or URL -->
           <label class="field">
             <span>ip_or_url</span>
             <input name="ip_or_url" placeholder="http://127.0.0.1:5001" value="{{ form_state.ip_or_url }}" required>
@@ -94,27 +92,25 @@
 
           <div class="actions">
             <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">back</a>
-            <button class="btn-primary" type="submit">add</button>
+            <button class="btn-primary" type="submit">add target</button>
           </div>
         </form>
       </div>
 
-      <!-- LIST OF EXISTING TARGETS -->
       <div class="panel" style="margin-top:16px;">
-        <h2 style="margin:0 0 10px 0; font-size:16px;">Your targets</h2>
+        <h2 style="margin:0 0 10px 0; font-size:16px;">Your Targets</h2>
 
         {% if targets|length == 0 %}
           <p style="color: var(--muted);">No targets yet</p>
           {% else %}
           {% for t in targets %}
-            <div class="item" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
               <div>
                 <b>{{ t.name }}</b><br>
                 <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span><br>
                 <span style="color:var(--muted); font-size:12px;">env: {{ t.environment or "lab" }} | services: {{ (t.allowed_services or [])|join(", ") if t.allowed_services else "default" }}</span><br>
                 <span style="color:var(--muted); font-size:12px;">ports: {{ (t.allowed_ports or [])|join(", ") if t.allowed_ports else "any" }} | approved users: {{ (t.approved_users or [])|join(", ") if t.approved_users else username }}</span>
               </div>
-              <!-- consent status pill -->
               <span class="pill">{{ t.consent_status }}</span>
             </div>
           {% endfor %}

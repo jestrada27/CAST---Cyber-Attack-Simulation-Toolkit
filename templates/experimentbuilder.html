@@ -10,18 +10,17 @@
 
 <body>
   <div class="layout" id="layout">
-    <!-- LEFT SIDEBAR -->
     <aside class="left-sidebar">
       <section class="section">
         <h3>Home</h3>
         <div class="button-group">
           <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="item" href="{{ url_for('experiment_history') }}">Experiment History</a>
           <a class="item" href="{{ url_for('targets') }}">Manage Targets</a>
-          <a class="item" href="{{ url_for('profile') }}">profile</a>
+          <a class="item" href="{{ url_for('profile') }}">Profile</a>
         </div>
       </section>
 
-      <!-- Experiments section -->
       <section class="section">
         <h3>Experiments</h3>
         <div class="button-group">
@@ -35,7 +34,7 @@
           <div class="button-group">
             {% if recent_experiments %}
               {% for exp in recent_experiments %}
-                <a class="item" href="{{ url_for('experimentdetails', experiment_id=exp.id) }}">
+                <a class="item" href="{{ url_for('experimentdetails', experiment_id=exp._id) }}">
                   {{ exp.module_label }} | {{ exp.status }} | {{ exp.created_at_label }}
                 </a>
               {% endfor %}
@@ -46,7 +45,6 @@
         </div>
       </section>
 
-      <!-- bottom-left user notch -->
       <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
         <div class="user-avatar">m</div>
         <div class="user-meta">
@@ -56,29 +54,64 @@
       </a>
     </aside>
 
-    <!-- Top bar with title + back button -->
     <main class="main">
       <header class="topbar">
         <div>
           <h1>Experiment Builder</h1>
-          <p class="sub">configure a safe test run</p>
+          <p class="sub">Configure a safe test run and save structured results for later review</p>
         </div>
-        <a class="btn-primary" href="{{ url_for('main_dashboard') }}">back</a>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <a class="btn-secondary" href="{{ url_for('experiment_history') }}">View History</a>
+          <a class="btn-primary" href="{{ url_for('main_dashboard') }}">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Dashboard
+          </a>
+        </div>
       </header>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <div style="margin-top:12px;">
             {% for cat, msg in messages %}
-              <div class="tag {% if cat=='success' %}ok{% endif %}" style="margin-right:8px;">{{ msg }}</div>
+              <div class="tag {% if cat == 'success' %}ok{% endif %}" style="margin-right:8px;">{{ msg }}</div>
             {% endfor %}
           </div>
         {% endif %}
       {% endwith %}
 
-      <div class="panel" style="margin-top:16px;">
-        <form method="post" class="form-grid">
+      <section class="grid cards feature-cards">
+        <div class="card feature-card history-card">
+          <div class="feature-icon"><i class="fa-regular fa-folder-open"></i></div>
+          <div class="feature-title">History</div>
+          <div class="feature-text">Every run can be saved and reviewed later</div>
+        </div>
 
+        <div class="card feature-card bruteforce-card">
+          <div class="feature-icon"><i class="fa-solid fa-lock"></i></div>
+          <div class="feature-title">Bruteforce</div>
+          <div class="feature-text">Controlled credential simulation workflow</div>
+        </div>
+
+        <div class="card feature-card metrics-card">
+          <div class="feature-icon"><i class="fa-solid fa-chart-column"></i></div>
+          <div class="feature-title">Metrics</div>
+          <div class="feature-text">Track throughput and detectability together</div>
+        </div>
+
+        <div class="card feature-card dns-card">
+          <div class="feature-icon"><i class="fa-solid fa-globe"></i></div>
+          <div class="feature-title">DNS</div>
+          <div class="feature-text">Safe DNS tunneling simulation and review</div>
+        </div>
+      </section>
+
+      <div class="panel builder-panel" style="margin-top:16px;">
+        <h2>
+          <i class="fa-solid fa-flask" style="margin-right:10px; color: var(--accent);"></i>
+          Create Experiment
+        </h2>
+
+        <form method="post" class="form-grid">
           <label class="field">
             <span>target</span>
             <select name="target_id" required>
@@ -88,8 +121,6 @@
               {% endfor %}
             </select>
           </label>
-
-          <!-- Module dropdown -->
 
           <label class="field">
             <span>module</span>
@@ -110,7 +141,7 @@
             <span>rate_limit</span>
             <input type="number" name="rate_limit" value="{{ selected_rate_limit }}" step="0.1" min="0.1" max="10">
           </label>
-          
+
           <label class="field">
             <span>description</span>
             <input type="text" name="description" placeholder="short description of this experiment">
@@ -281,14 +312,22 @@
             <input type="number" name="dns_max_queries_per_second" value="{{ selected_safety.dns_max_queries_per_second }}" step="0.1" min="0.1" max="25">
           </label>
 
-          <label class="field checkbox">
-            <input type="checkbox" name="dry_run" {% if selected_dry_run %}checked{% endif %}>
-            <span>Dry Run</span>
-          </label>
+          <div class="builder-footer">
+            <label class="field checkbox dryrun-row">
+              <span class="dryrun-label">dry run</span>
+              <div class="dryrun-control">
+                <input type="checkbox" name="dry_run" {% if selected_dry_run %}checked{% endif %}>
+                <span>Dry Run (safe mode)</span>
+              </div>
+            </label>
 
-          <div class="actions">
-            <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">cancel</a>
-            <button class="btn-primary" type="submit">create</button>
+            <div class="actions">
+              <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">Cancel</a>
+              <button class="btn-primary" type="submit">
+                <i class="fa-solid fa-flask"></i>
+                Create Experiment
+              </button>
+            </div>
           </div>
         </form>
       </div>

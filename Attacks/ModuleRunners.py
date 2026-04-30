@@ -17,6 +17,14 @@ def _bounded(value, low, high):
     return max(low, min(high, value))
 
 
+def _risk_band(score):
+    if score >= 70:
+        return "High"
+    if score >= 40:
+        return "Moderate"
+    return "Low"
+
+
 def _extract_port(url_or_host, default_port):
     if not url_or_host:
         return default_port
@@ -72,10 +80,15 @@ def _build_safety_fields(safety_engine):
 
 
 def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, safety_engine=None):
+    """
+    Brute-force experiment with safety-engine gating per attempt.
+    Returns structured telemetry compatible with the experiment details page.
+    """
     started_at = datetime.utcnow()
     attempts_per_user = int(_bounded(int(attempts), 1, 10))
-    concurrency = int(_bounded(math.ceil(float(rate_limit)), 1, 10))
-    delay = round(_bounded(0.15 / max(float(rate_limit), 0.1), 0.02, 0.25), 3)
+    base_rate_limit = _bounded(float(rate_limit), 0.1, 10.0)
+    concurrency = int(_bounded(math.ceil(base_rate_limit), 1, 10))
+    delay = round(_bounded(0.15 / max(base_rate_limit, 0.1), 0.02, 0.25), 3)
     run_id = str(uuid.uuid4())
     creds = _load_bruteforce_credentials()
     target_url = (target or {}).get("ip_or_url") or "http://127.0.0.1:5001/login"
@@ -84,9 +97,11 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
 
     status_counts = {}
     events = []
+    sample_results = []
     executed_attempts = 0
     success_count = 0
     login_budget = max(1, min(concurrency * attempts_per_user, len(creds) * attempts_per_user))
+    sample_index = 0
 
     for username, passwords in creds.items():
         for attempt_idx in range(attempts_per_user):
@@ -119,11 +134,23 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
                 success_count += 1
 
             status_counts[simulated_status] = status_counts.get(simulated_status, 0) + 1
-            detectability = round(_bounded(18 + (attempt_idx * 7) + (float(rate_limit) * 6), 1, 100), 2)
+            detectability = round(_bounded(18 + (attempt_idx * 7) + (base_rate_limit * 6), 1, 100), 2)
+            throughput = round(2.5 + (base_rate_limit * 1.3) + random.uniform(0.05, 0.5), 3)
+
+            sample_index += 1
+            sample_results.append({
+                "trial": sample_index,
+                "username": username,
+                "status": simulated_status,
+                "throughput_kbps": throughput,
+                "detectability_score": detectability,
+                "risk_band": _risk_band(detectability),
+            })
+
             monitor = safety_engine.monitor_activity(
                 {
                     "detectability_score": detectability,
-                    "bandwidth_kbps": round(2.5 + (float(rate_limit) * 1.3), 3),
+                    "bandwidth_kbps": throughput,
                     "packet_count": 1,
                     "unexpected_targets": 0,
                 }
@@ -143,28 +170,44 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
     total_attempts = sum(count for key, count in status_counts.items() if key in {"dry_run", "failed", "success"})
     success_rate = round((success_count / total_attempts) * 100.0, 2) if total_attempts else 0.0
 
+    avg_throughput = round(
+        sum(sample["throughput_kbps"] for sample in sample_results) / len(sample_results),
+        3
+    ) if sample_results else 0.0
+
+    avg_detectability = round(
+        sum(sample["detectability_score"] for sample in sample_results) / len(sample_results),
+        2
+    ) if sample_results else 0.0
+
     if status_counts.get("terminated"):
         guidance = "Safety engine terminated the brute-force simulation. Review the audit trail before retrying."
     elif status_counts.get("throttled"):
         guidance = "Brute-force attempts were throttled. Reduce login velocity or narrow account scope."
+    elif success_rate > 5 and avg_detectability < 45:
+        guidance = "Credential abuse simulation showed measurable effectiveness with relatively low noise. Strengthen password policy and lockout controls."
     elif success_rate > 5:
         guidance = "Credential policy appears weak. Increase account lockout and password complexity."
+    elif avg_detectability >= 70:
+        guidance = "Brute force activity is highly detectable in this run. Reduce request rate and keep testing in dry-run mode while tuning."
     else:
-        guidance = "Low compromise rate in this run. Continue monitoring failed auth telemetry."
+        guidance = "Low compromise rate in this run. Continue monitoring authentication failures and alert thresholds."
 
     return {
         "mode": "dry_run" if dry_run else "simulated_active",
         "started_at": started_at,
         "completed_at": completed_at,
         "sample_count": total_attempts,
-        "avg_throughput_kbps": round(float(rate_limit) * 2.1, 3),
-        "avg_detectability_score": round(_bounded(25 + (concurrency * 4) + (attempts_per_user * 1.5), 1, 100), 2),
+        "avg_throughput_kbps": avg_throughput,
+        "avg_detectability_score": avg_detectability,
         "guidance": guidance,
         "run_id": run_id,
         "target_url": target_url,
         "telemetry_mode": "safety_enforced_simulation",
         "status_counts": status_counts,
         "success_rate_percent": success_rate,
+        "risk_band": _risk_band(avg_detectability),
+        "samples": sample_results,
         "action_events": events,
         **_build_safety_fields(safety_engine),
     }
@@ -210,6 +253,7 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
     }
     cfg = by_module.get(module_id, {"throughput_factor": 1.5, "detection_factor": 2.0, "label": module_id.upper(), "payloads": ["sample"], "service": "http"})
 
+    samples = []
     avg_detectability_total = 0.0
     avg_throughput_total = 0.0
     executed_samples = 0
@@ -243,6 +287,13 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
         avg_detectability_total += detectability
         executed_samples += 1
 
+        samples.append({
+            "trial": executed_samples,
+            "throughput_kbps": throughput,
+            "detectability_score": detectability,
+            "risk_band": _risk_band(detectability),
+        })
+
         monitor = safety_engine.monitor_activity(
             {
                 "detectability_score": detectability,
@@ -268,7 +319,7 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
     elif avg_detectability >= 70:
         guidance = f"{cfg['label']} profile is noisy. Reduce rate or keep dry-run for tuning."
     elif avg_detectability >= 45:
-        guidance = f"{cfg['label']} profile is moderate. Tune payload cadence and validate alerts."
+        guidance = f"{cfg['label']} profile is moderate. Tune payload cadence and validate monitoring alerts."
     else:
         guidance = f"{cfg['label']} profile is low-noise in this simulation."
 
@@ -282,6 +333,8 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
         "avg_detectability_score": avg_detectability,
         "guidance": guidance,
         "module_label": cfg["label"],
+        "risk_band": _risk_band(avg_detectability),
+        "samples": samples,
         "status_counts": decision_counts,
         "action_events": action_events,
         **_build_safety_fields(safety_engine),

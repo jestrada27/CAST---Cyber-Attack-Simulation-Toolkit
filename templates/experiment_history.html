@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Experiment History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
+</head>
+
+<body>
+  <div class="layout">
+
+    <aside class="left-sidebar">
+      <section class="section">
+        <h3>Navigation</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="item" href="{{ url_for('experiment_builder') }}">New Experiment</a>
+          <a class="item is-selected" href="{{ url_for('experiment_history') }}">Experiment History</a>
+          <a class="item" href="{{ url_for('targets') }}">Targets</a>
+          <a class="item" href="{{ url_for('profile') }}">Profile</a>
+        </div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Experiment History</h1>
+          <p class="sub">Search, filter, and review saved simulations</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder') }}">New Experiment</a>
+        </div>
+      </header>
+
+      <div class="panel" style="margin-top:16px;">
+        <h2>Filter Experiments</h2>
+
+        <form method="GET" class="form-grid">
+          <label class="field">
+            <span>Keyword</span>
+            <input
+              type="text"
+              name="q"
+              value="{{ filters.q }}"
+              placeholder="Search notes, description, target, or module"
+            >
+          </label>
+
+          <label class="field">
+            <span>Module</span>
+            <select name="module_id">
+              <option value="">All Modules</option>
+              {% for value, label in module_choices %}
+                <option value="{{ value }}" {% if filters.module_id == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Status</span>
+            <select name="status">
+              <option value="">All Statuses</option>
+              {% for s in status_choices %}
+                <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Target</span>
+            <select name="target_id">
+              <option value="">All Targets</option>
+              {% for t in targets %}
+                <option value="{{ t._id }}" {% if filters.target_id == (t._id|string) %}selected{% endif %}>
+                  {{ t.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Minimum Throughput</span>
+            <input
+              type="number"
+              step="0.1"
+              name="min_throughput"
+              value="{{ filters.min_throughput }}"
+              placeholder="0.0"
+            >
+          </label>
+
+          <div class="actions">
+            <button class="btn-primary" type="submit">Search</button>
+            <a class="btn-secondary" href="{{ url_for('experiment_history') }}">Reset</a>
+          </div>
+        </form>
+      </div>
+
+      <section class="grid cards">
+        <div class="card">
+          <div class="card-label">Matched Experiments</div>
+          <div class="card-value">{{ summary.total }}</div>
+          <div class="card-hint">Filtered results</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Average Throughput</div>
+          <div class="card-value">{{ summary.avg_throughput }}</div>
+          <div class="card-hint">kbps</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Average Detectability</div>
+          <div class="card-value">{{ summary.avg_detectability }}</div>
+          <div class="card-hint">Detection score</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">High Risk Runs</div>
+          <div class="card-value">{{ summary.high_risk }}</div>
+          <div class="card-hint">Flagged as high risk</div>
+        </div>
+      </section>
+
+      <div class="panel" style="margin-top:16px;">
+        <h2>Saved Results</h2>
+
+        {% if experiments %}
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Module</th>
+                  <th>Target</th>
+                  <th>Status</th>
+                  <th>Throughput</th>
+                  <th>Detectability</th>
+                  <th>Risk</th>
+                  <th>Open</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for exp in experiments %}
+                  <tr>
+                    <td>{{ exp.created_at_label }}</td>
+                    <td>{{ exp.module_label }}</td>
+                    <td>{{ exp.target_name }}</td>
+                    <td>{{ exp.status }}</td>
+                    <td>{{ exp.avg_throughput_kbps }}</td>
+                    <td>{{ exp.avg_detectability_score }}</td>
+                    <td>{{ exp.risk_band }}</td>
+                    <td>
+                      <a class="nav-item" href="{{ url_for('experimentdetails', experiment_id=exp._id) }}">View</a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="panel-hint">No experiments found.</p>
+        {% endif %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>

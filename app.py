@@ -1,16 +1,13 @@
 from flask import Flask, request, session, redirect, render_template, flash, url_for, jsonify
 from flask_mail import Mail, Message
-#from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
 import os
 import bcrypt
-from copy import deepcopy
-#from dotenv import load_dotenv
-#from datetime import datetime, timedelta
 import time
-from bson import ObjectId
+from copy import deepcopy
 from itsdangerous import URLSafeTimedSerializer as Serializer
+
 from Attacks.DNSTunnelingExperiment import run_dns_tunneling_experiment
 from Attacks.ModuleRunners import run_bruteforce_experiment, run_generic_module_simulation
 from Attacks.SafetyEnforcementEngine import (
@@ -19,24 +16,23 @@ from Attacks.SafetyEnforcementEngine import (
     normalize_safety_settings,
 )
 
-
-# Mongo collections used directly by this module.
 from database import database_name
+
 collection_users = database_name["users"]
 collection_targets = database_name["targets"]
 collection_experiments = database_name["experiments"]
 
 app = Flask(__name__)
-#Setting up the mail server that is used for sending the user their reset password link
+
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.getenv('EMAIL_USER')
 app.config['MAIL_PASSWORD'] = os.getenv('EMAIL_PASS')
 app.secret_key = os.getenv('SECRETKEY')
+
 mail = Mail(app)
 
-#registering the user_management and reports / logs with app.py so they can be used when running the app
 from user_management import user_manage_bp
 app.register_blueprint(user_manage_bp)
 
@@ -44,23 +40,18 @@ from reports import reports_bp
 app.register_blueprint(reports_bp)
 
 
-#password checking for if the password is a certain length and complexity
 def good_password_check(password):
     """Validate password complexity and return an error string or None."""
-    #len greater than 7 and less than 40, 1 lowercase, 1 uppercase, 1 number, and 1 special character ~`! @#$%^&*()_-+={[}]|\:;\"'<,>.?/ allowed 
     lowercase = False
     uppercase = False
     number = False
     special_char = False
     special_char_list = "~`! @#$%^&*()_-+={[}]|:;\"'<,>.?/"
-    
-    #checks password if it's in the charatcer range
+
     if len(password) < 7 or len(password) > 40:
         return 'Password needs to be 7-40 characters in length.'
-        #flash('Password needs to be 7-40 characters in length.', 'danger')
-        #return redirect('/createaccount')
-    #loops through password to see if there are lowercase, uppercase, digits, or special characters
-    for char in password: 
+
+    for char in password:
         if char.islower():
             lowercase = True
         if char.isupper():
@@ -70,36 +61,27 @@ def good_password_check(password):
         if char in special_char_list:
             special_char = True
 
-    if lowercase == False or uppercase == False or number == False or special_char == False:
+    if not lowercase or not uppercase or not number or not special_char:
         return 'Password needs 1 lowercase, 1 uppercase, 1 number, and 1 special character.'
-        #flash('Password needs 1 lowercase, 1 uppercase, 1 number, and 1 special character.', 'danger')
-        #return redirect('/createaccount')
     return None
 
-#token function that is used to create the token for the user to be able to reset their password.
+
 def reset_token(user_id):
     """Create a time-limited password reset token for a user id."""
-    #serial = Serializer(app.config['SECRETKEY'], expiration=expiration)
-#creation of the reset token using Serializer
     serial = Serializer(app.secret_key)
     return serial.dumps(str(user_id), salt="password_reset")
 
 
-#function to verify the reset token and that was generated with the Serializer
-#loads and checks to see if a token for the user was created and makes sure
 def verify_token(token, max_age=1800):
     """Decode a reset token and return user id if token is valid."""
     serial = Serializer(app.secret_key)
-    try: 
+    try:
         user_id = serial.loads(token, salt="password_reset", max_age=max_age)
-    except: 
+    except Exception:
         return None
     return user_id
 
 
-#forgot password route. used for getting the user to the forgot password page.
-#allows the user to enter their email and checks for that email in the database
-#if found, the user gets sent a reset token in a link to their email
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     """Accept user email and send reset link when the account exists."""
@@ -112,14 +94,12 @@ def forgot_password():
             token = reset_token(user["_id"])
             collection_users.update_one({"_id": user["_id"]}, {"$set": {"reset_token": token}})
             send_reset(user, token)
+
         return redirect('/forgot_password')
-    
+
     return render_template('forgotpassword.html')
 
 
-##password reset route for when the user clicks on the reset link. Checks if the user is valid and has a valid token.
-#lets the user input their new password and checks if it's good. 
-#hashes the password, stores it in the db, and then takes the user back to the login page
 @app.route('/password_reset/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     """Validate reset token and allow the user to set a new password."""
@@ -145,30 +125,33 @@ def reset_password(token):
         if bad_password:
             flash(bad_password, 'danger')
             return redirect(request.url)
-        
+
         hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-        collection_users.update_one({"_id": ObjectId(user_id)}, {"$set": {"password": hashed_password}, "$unset": {"reset_token": ""}})
+        collection_users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"password": hashed_password}, "$unset": {"reset_token": ""}}
+        )
 
         flash("Password updated.", "success")
         return redirect('/')
-    
+
     return render_template('passwordreset.html', token=token)
 
 
-#function for sending the user their reset token. creates the url with a message and sends it to the user
 def send_reset(user, token):
     """Send the password reset email containing the signed reset link."""
-    #token = user_id.reset_token()
     password_reset_link = url_for('reset_password', token=token, _external=True)
-    msg = Message('Password Reset Request for CAST App',   
-                sender=app.config['MAIL_USERNAME'], recipients=[user['email']])
-    msg.body = f'''Click the link to reset your CAST password: {password_reset_link}
-    Please ignore this email if you did not create the password reset request. Thank you.'''
-
+    msg = Message(
+        'Password Reset Request for CAST App',
+        sender=app.config['MAIL_USERNAME'],
+        recipients=[user['email']]
+    )
+    msg.body = (
+        f"Click the link to reset your CAST password: {password_reset_link}\n"
+        "Please ignore this email if you did not create the password reset request. Thank you."
+    )
     mail.send(msg)
 
-
-#createaccount
 
 @app.route('/createaccount', methods=['GET', 'POST'])
 def create_account():
@@ -179,15 +162,14 @@ def create_account():
         password = request.form['password']
         confirm_pw = request.form['confirm_pw']
 
-        #username checking for a certain length when creating the account
         if len(username) < 5 or len(username) > 30:
             flash('Username needs to be 5-30 characters in length. Please enter a new username.', 'danger')
             return redirect('/createaccount')
 
         if password != confirm_pw:
-            flash('Password not the same', 'danger' )
+            flash('Password not the same', 'danger')
             return redirect('/createaccount')
-        
+
         if collection_users.find_one({"username": username}):
             flash('User already exists', 'danger')
             return redirect('/createaccount')
@@ -195,8 +177,7 @@ def create_account():
         if collection_users.find_one({"email": email}):
             flash('Email already used', 'danger')
             return redirect('/createaccount')
-        
-        #checks if the entered password meets the requirements in the good password function. if it doesn't you have to try again.
+
         bad_password = good_password_check(password)
         if bad_password:
             flash(bad_password, 'danger')
@@ -211,9 +192,8 @@ def create_account():
         })
 
         flash('Account successfully created', 'success')
-
         return redirect('/')
-    
+
     return render_template('createaccount.html')
 
 
@@ -222,87 +202,76 @@ def verify_password():
     """Verify current password before sensitive profile actions."""
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
-    data = request.get_json()
-    entered = data["password"]
 
-    # user = collection_users.find_one(
-    #     {"username": session["user"]}
-    # )
+    data = request.get_json() or {}
+    entered = data.get("password", "")
     user = collection_users.find_one({"_id": ObjectId(session["user_id"])})
+
+    if not user:
+        return {"valid": False}
 
     if bcrypt.checkpw(entered.encode('utf-8'), user['password']):
         return {"valid": True}
 
     return {"valid": False}
 
+
 @app.post("/change-password")
 def change_password():
     """Change the authenticated user's password."""
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
-     
-    data = request.get_json()
-    new_pass = data["new_password"]
 
-    #new password check for security improvement and for password rules. checks if the changed password meets rules. - Noah
+    data = request.get_json() or {}
+    new_pass = data.get("new_password", "")
+
     bad_password = good_password_check(new_pass)
     if bad_password:
-            return {"success": False, "message": bad_password}, 400
+        return {"success": False, "message": bad_password}, 400
 
-
-    # Hash password
     hashed_pass = bcrypt.hashpw(new_pass.encode('utf-8'), bcrypt.gensalt())
 
-    # Update MongoDB
     result = collection_users.update_one(
-        #{"username": session["user"]},
         {"_id": ObjectId(session["user_id"])},
         {"$set": {"password": hashed_pass}}
     )
 
     return {"success": result.modified_count == 1}
 
+
 @app.post("/api/change-username")
 def change_username():
     """Update username while enforcing uniqueness and length rules."""
-    #if "user" not in session:
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
 
     data = request.get_json() or {}
     new_username = (data.get("username") or "").strip()
 
-    #Check new username for username rules. makes sure it meets the rule set. - Noah
     if len(new_username) < 5 or len(new_username) > 30:
         return {"success": False, "message": "Username needs to be 5 to 30 characters long"}
-
 
     if not new_username:
         return {"success": False, "message": "Username is required."}, 400
 
-    #Make sure the username actaully changed from previous
-    #if new_username == session["user"]:
     if new_username == session["username"]:
         return {"success": False, "message": "No change detected"}, 400
 
-    # Make sure that the new username isnt already in use
     duplicate_check = collection_users.find_one({"username": new_username})
-
     if duplicate_check:
         return {"success": False, "message": "Username already in use"}, 400
+
     user_id = ObjectId(session["user_id"])
-    # Update MongoDB
     result = collection_users.update_one(
-        #{"username": session["user"]},
         {"_id": user_id},
         {"$set": {"username": new_username}}
     )
 
     if result.modified_count > 0:
-        #update the local session
         session["username"] = new_username
 
     return {"success": result.modified_count == 1}
+
 
 @app.post("/api/change-email")
 def change_email():
@@ -316,29 +285,24 @@ def change_email():
     if not new_email:
         return {"success": False, "message": "Email is required."}, 400
 
-    # Make sure the username actaully changed from previous
-    # if new_email == session["user"]:
     if new_email == session["email"]:
         return {"success": False, "message": "No change detected"}, 400
 
-    # Make sure that the new username isnt already in use
     duplicate_check = collection_users.find_one({"email": new_email})
-
     if duplicate_check:
         return {"success": False, "message": "Email already in use"}, 400
+
     user_id = ObjectId(session["user_id"])
-    # Update MongoDB
     result = collection_users.update_one(
-        #{"username": session["user"]},
         {"_id": user_id},
         {"$set": {"email": new_email}}
     )
 
     if result.modified_count > 0:
-        #update the local session
         session["email"] = new_email
 
     return {"success": result.modified_count == 1}
+
 
 @app.post("/delete-account")
 def delete_account():
@@ -346,41 +310,31 @@ def delete_account():
     if "user_id" not in session:
         return {"success": False, "message": "Not logged in"}, 401
 
-    #username = session["user"]
     user_id = ObjectId(session["user_id"])
-    #result = collection_users.delete_one({"username": username})
     result = collection_users.delete_one({"_id": user_id})
 
-    # Clear session
     session.clear()
 
     if result.deleted_count == 1:
         return {"success": True}
-    else:
-        return {"success": False, "message": "User not found."}, 404
+    return {"success": False, "message": "User not found."}, 404
 
 
-
-#userlogin
-
-#limiting number of login attempts for user to have for logging in
 attempts_num = 6
+
 
 @app.route('/', methods=['GET', 'POST'])
 def user_login():
     """Authenticate user credentials with lockout on repeated failures."""
-
-    #set user attempt
     if 'attempt' not in session:
         session['attempt'] = 0
-    
+
     if 'attempt_lock' in session:
         if time.time() < session['attempt_lock']:
             flash('Failed to login after multiple attempts.', 'danger')
             return render_template('login.html')
-        else:
-            session.pop('attempt_lock', None)
-            session['attempt'] = 0
+        session.pop('attempt_lock', None)
+        session['attempt'] = 0
 
     bad_attempt = False
     good_attempt = False
@@ -389,17 +343,13 @@ def user_login():
         username = request.form['username'].strip()
         password = request.form['password']
 
-        #user = collection_users.find_one({"username": username, "password": password})
         user = collection_users.find_one({"username": username})
 
         if user:
-            #database_user = user['username']
             database_pw = user['password']
             if bcrypt.checkpw(password.encode('utf-8'), database_pw):
-                #session["user"] = database_user
                 session["user_id"] = str(user["_id"])
                 session["username"] = user["username"]
-                #session["user"] = database_user
                 session["email"] = user['email']
                 good_attempt = True
                 flash('Logged in', 'success')
@@ -413,31 +363,27 @@ def user_login():
             flash('Incorrect login info', 'danger')
             time.sleep(3)
 
-        if bad_attempt == True:
+        if bad_attempt:
             session['attempt'] += 1
-        elif good_attempt == True:
+        elif good_attempt:
             session['attempt'] = 0
-        
+
         if session['attempt'] >= attempts_num:
             session['attempt_lock'] = time.time() + 30
             flash('Failed to login after multiple attempts. Locked out. Try later.', 'danger')
-    
 
     return render_template('login.html')
 
-#Checks to see if the user is logged in. If they are not, we return the redirect response. If they are logged in,
-#we return None
+
 def ensure_user_logged_in():
     """Guard helper: redirect to login when session is missing."""
-    #if "user" not in session:
     if "user_id" not in session:
         flash("Please log in to access the dashboard.", "error")
         return redirect(url_for('user_login'))
     return None
 
 
-def get_recent_experiments(owner_username, limit=8):
-    """Load recent experiments and attach display-friendly labels."""
+def get_module_label(module_id):
     module_names = {
         "brute force": "Brute Force",
         "xss": "XSS",
@@ -445,7 +391,126 @@ def get_recent_experiments(owner_username, limit=8):
         "replay": "Replay",
         "dns": "DNS Tunneling",
     }
+    return module_names.get(module_id, module_id.upper() if module_id else "Unknown Module")
 
+
+def format_timestamp_label(value):
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M UTC")
+    return "Unknown time"
+
+
+def get_risk_band(detectability_score):
+    if detectability_score >= 70:
+        return "High"
+    if detectability_score >= 40:
+        return "Moderate"
+    return "Low"
+
+
+def safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_experiment_results(module_id, raw_results, dry_run=False):
+    """Normalize module output so templates and history can render consistently."""
+    started_at = raw_results.get("started_at", datetime.utcnow())
+    completed_at = raw_results.get("completed_at", datetime.utcnow())
+
+    if module_id == "dns":
+        samples = raw_results.get("samples", [])
+        avg_throughput = round(safe_float(raw_results.get("avg_throughput_kbps")), 2)
+        avg_detectability = round(safe_float(raw_results.get("avg_detectability_score")), 2)
+        efficiency = round(avg_throughput / max(avg_detectability, 1), 2)
+
+        return {
+            "mode": "Dry Run" if dry_run else "Live Simulation",
+            "guidance": raw_results.get("guidance", "DNS tunneling metrics were collected successfully."),
+            "sample_count": len(samples),
+            "avg_throughput_kbps": avg_throughput,
+            "avg_detectability_score": avg_detectability,
+            "throughput_detectability_efficiency": efficiency,
+            "risk_band": get_risk_band(avg_detectability),
+            "samples": samples,
+            "started_at": started_at,
+            "completed_at": completed_at,
+        }
+
+    if module_id == "brute force":
+        success_rate = round(safe_float(raw_results.get("success_rate_percent")), 2)
+        avg_detectability = round(safe_float(raw_results.get("avg_detectability_score")), 2)
+        avg_throughput = round(safe_float(raw_results.get("avg_throughput_kbps")), 2)
+        efficiency = round(avg_throughput / max(avg_detectability, 1), 2)
+
+        return {
+            "mode": "Dry Run" if dry_run else "Live Simulation",
+            "guidance": raw_results.get("guidance", "Brute force telemetry captured successfully."),
+            "sample_count": raw_results.get("sample_count", raw_results.get("attempts", 0)),
+            "success_rate_percent": success_rate,
+            "avg_throughput_kbps": avg_throughput,
+            "avg_detectability_score": avg_detectability,
+            "throughput_detectability_efficiency": efficiency,
+            "risk_band": get_risk_band(avg_detectability),
+            "samples": raw_results.get("samples", []),
+            "started_at": started_at,
+            "completed_at": completed_at,
+        }
+
+    avg_detectability = round(safe_float(raw_results.get("avg_detectability_score")), 2)
+    avg_throughput = round(safe_float(raw_results.get("avg_throughput_kbps")), 2)
+    efficiency = round(avg_throughput / max(avg_detectability, 1), 2)
+
+    return {
+        "mode": "Dry Run" if dry_run else "Live Simulation",
+        "guidance": raw_results.get("guidance", "Simulation completed."),
+        "sample_count": raw_results.get("sample_count", 0),
+        "avg_throughput_kbps": avg_throughput,
+        "avg_detectability_score": avg_detectability,
+        "throughput_detectability_efficiency": efficiency,
+        "risk_band": get_risk_band(avg_detectability),
+        "samples": raw_results.get("samples", []),
+        "started_at": started_at,
+        "completed_at": completed_at,
+    }
+
+
+def enrich_experiment(exp, target_map=None):
+    """Attach display-friendly fields used by dashboard/history/details."""
+    target_map = target_map or {}
+
+    exp["id"] = str(exp["_id"])
+    exp["target_name"] = target_map.get(exp.get("target_id"), "Unknown target")
+    exp["module_label"] = get_module_label(exp.get("module_id", ""))
+    exp["created_at_label"] = format_timestamp_label(exp.get("created_at"))
+
+    results = exp.get("results", {}) or {}
+    avg_throughput = round(safe_float(results.get("avg_throughput_kbps")), 2)
+    avg_detectability = round(safe_float(results.get("avg_detectability_score")), 2)
+    risk_band = results.get("risk_band") or get_risk_band(avg_detectability)
+
+    exp["avg_throughput_kbps"] = avg_throughput
+    exp["avg_detectability_score"] = avg_detectability
+    exp["risk_band"] = risk_band
+
+    return exp
+
+
+def get_target_map_for_experiments(experiments):
+    target_ids = [exp.get("target_id") for exp in experiments if exp.get("target_id")]
+    if not target_ids:
+        return {}
+
+    return {
+        t["_id"]: t.get("name", "Unknown target")
+        for t in collection_targets.find({"_id": {"$in": target_ids}}, {"name": 1})
+    }
+
+
+def get_recent_experiments(owner_username, limit=8):
+    """Load recent experiments and attach display-friendly labels."""
     experiments = list(
         collection_experiments
         .find({"owner": owner_username})
@@ -453,21 +518,32 @@ def get_recent_experiments(owner_username, limit=8):
         .limit(limit)
     )
 
-    target_ids = [exp.get("target_id") for exp in experiments if exp.get("target_id")]
-    target_map = {
-        t["_id"]: t.get("name", "Unknown target")
-        for t in collection_targets.find({"_id": {"$in": target_ids}}, {"name": 1})
-    } if target_ids else {}
-
+    target_map = get_target_map_for_experiments(experiments)
     for exp in experiments:
-        exp["id"] = str(exp["_id"])
-        exp["target_name"] = target_map.get(exp.get("target_id"), "Unknown target")
-        module_id = exp.get("module_id", "")
-        exp["module_label"] = module_names.get(module_id, module_id.upper() if module_id else "Unknown Module")
-        created_at = exp.get("created_at")
-        exp["created_at_label"] = created_at.strftime("%Y-%m-%d %H:%M UTC") if isinstance(created_at, datetime) else "Unknown time"
+        enrich_experiment(exp, target_map)
 
     return experiments
+
+
+def get_dashboard_metrics(owner_username):
+    experiments = list(collection_experiments.find({"owner": owner_username}))
+    throughput_values = []
+    detectability_values = []
+
+    for exp in experiments:
+        results = exp.get("results", {}) or {}
+        throughput = safe_float(results.get("avg_throughput_kbps"), None)
+        detectability = safe_float(results.get("avg_detectability_score"), None)
+
+        if throughput is not None:
+            throughput_values.append(throughput)
+        if detectability is not None:
+            detectability_values.append(detectability)
+
+    average_throughput_kbps = round(sum(throughput_values) / len(throughput_values), 2) if throughput_values else 0.0
+    average_detectability_score = round(sum(detectability_values) / len(detectability_values), 2) if detectability_values else 0.0
+
+    return average_throughput_kbps, average_detectability_score
 
 
 def safety_form_state_from_settings(settings):
@@ -733,18 +809,14 @@ def run_experiment_now(experiment, target, user):
         "category": "warning",
     }
 
-#maindashboard
 
 @app.route('/main_dashboard')
 def main_dashboard():
     """Render dashboard with user summary metrics and recent experiments."""
-
-    #if "user" not in session:
     if "user_id" not in session:
         flash("Please log in to access the dashboard.", "error")
         return redirect(url_for('user_login'))
 
-    #username = session["user"]
     username = session["username"]
     recent_experiments = get_recent_experiments(username, limit=8)
     active_experiment_count = collection_experiments.count_documents({
@@ -756,6 +828,7 @@ def main_dashboard():
         "status": {"$in": ["Completed", "Finished", "Success", "Dry-Run Complete", "Completed With Blocks", "Completed With Throttling", "Terminated", "Safety Blocked"]}
     })
     targets_count = collection_targets.count_documents({"owner": username})
+    average_throughput_kbps, average_detectability_score = get_dashboard_metrics(username)
 
     return render_template(
         'Dashboard/maindashboard.html',
@@ -763,10 +836,11 @@ def main_dashboard():
         recent_experiments=recent_experiments,
         active_experiment_count=active_experiment_count,
         completed_experiment_count=completed_experiment_count,
-        targets_count=targets_count
+        targets_count=targets_count,
+        average_throughput_kbps=average_throughput_kbps,
+        average_detectability_score=average_detectability_score
     )
 
-#experiment builder
 @app.route("/experiment_builder", methods=["GET", "POST"])
 def experiment_builder():
     """Create a new experiment and optionally execute supported modules."""
@@ -776,9 +850,8 @@ def experiment_builder():
 
     username = session["username"]
     recent_experiments = get_recent_experiments(username, limit=8)
-    targets = list(collection_targets.find({"owner": username}))
+    targets = list(collection_targets.find({"owner": username}, {"name": 1}).sort("created_at", -1))
 
-    # Module list
     modules = [
         {"id": "brute force", "name": "Brute Force (Controlled)"},
         {"id": "xss", "name": "XSS (Safe Test)"},
@@ -943,8 +1016,7 @@ def experiment_builder():
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
             )
-        
-        
+
         exp_doc = {
             "owner": username,
             "target_id": target_object_id,
@@ -994,6 +1066,100 @@ def experiment_builder():
         selected_dry_run=selected_dry_run,
         selected_safety=selected_safety,
     )
+
+@app.route("/experiment_history")
+def experiment_history():
+    """Search and filter the authenticated user's saved experiments."""
+    res = ensure_user_logged_in()
+    if res is not None:
+        return res
+
+    username = session["username"]
+
+    filters = {
+        "q": (request.args.get("q") or "").strip(),
+        "module_id": (request.args.get("module_id") or "").strip(),
+        "status": (request.args.get("status") or "").strip(),
+        "target_id": (request.args.get("target_id") or "").strip(),
+        "min_throughput": (request.args.get("min_throughput") or "").strip(),
+    }
+
+    mongo_query = {"owner": username}
+
+    if filters["module_id"]:
+        mongo_query["module_id"] = filters["module_id"]
+
+    if filters["status"]:
+        mongo_query["status"] = filters["status"]
+
+    if filters["target_id"]:
+        try:
+            mongo_query["target_id"] = ObjectId(filters["target_id"])
+        except Exception:
+            flash("Invalid target filter ignored.", "warning")
+
+    experiments = list(
+        collection_experiments.find(mongo_query).sort("created_at", -1)
+    )
+
+    target_map = get_target_map_for_experiments(experiments)
+    for exp in experiments:
+        enrich_experiment(exp, target_map)
+
+    if filters["q"]:
+        q = filters["q"].lower()
+        experiments = [
+            exp for exp in experiments
+            if q in (exp.get("description", "") or "").lower()
+            or q in (exp.get("notes", "") or "").lower()
+            or q in (exp.get("module_label", "") or "").lower()
+            or q in (exp.get("target_name", "") or "").lower()
+        ]
+
+    if filters["min_throughput"]:
+        min_throughput = safe_float(filters["min_throughput"], 0.0)
+        experiments = [
+            exp for exp in experiments
+            if safe_float(exp.get("avg_throughput_kbps"), 0.0) >= min_throughput
+        ]
+
+    throughput_values = [safe_float(exp.get("avg_throughput_kbps"), 0.0) for exp in experiments]
+    detectability_values = [safe_float(exp.get("avg_detectability_score"), 0.0) for exp in experiments]
+
+    summary = {
+        "total": len(experiments),
+        "avg_throughput": round(sum(throughput_values) / len(throughput_values), 2) if throughput_values else 0.0,
+        "avg_detectability": round(sum(detectability_values) / len(detectability_values), 2) if detectability_values else 0.0,
+        "high_risk": sum(1 for exp in experiments if exp.get("risk_band") == "High"),
+    }
+
+    targets_list = list(collection_targets.find({"owner": username}).sort("created_at", -1))
+    module_choices = [
+        ("brute force", "Brute Force"),
+        ("dns", "DNS Tunneling"),
+        ("sqli", "SQL Injection"),
+        ("xss", "XSS"),
+        ("replay", "Replay"),
+    ]
+    status_choices = [
+        "Queued",
+        "Running",
+        "Completed",
+        "Dry-Run Complete",
+        "Failed",
+    ]
+
+    return render_template(
+        "experiment_history.html",
+        username=username,
+        experiments=experiments,
+        filters=filters,
+        summary=summary,
+        targets=targets_list,
+        module_choices=module_choices,
+        status_choices=status_choices,
+    )
+
 
 @app.route("/targets", methods=["GET", "POST"])
 def targets():
@@ -1097,6 +1263,7 @@ def targets():
     targets_list = list(collection_targets.find({"owner": username}).sort("created_at", -1))
     return render_template("targets.html", username=username, targets=targets_list, form_state=target_form_state({"approved_users": [username]}))
 
+
 @app.route("/experimentdetails/<experiment_id>")
 def experimentdetails(experiment_id):
     """Show one experiment only if it belongs to the logged-in user."""
@@ -1120,6 +1287,8 @@ def experimentdetails(experiment_id):
     target = collection_targets.find_one({"_id": exp["target_id"]})
     target_name = target["name"] if target else "unknown target"
     recent_experiments = get_recent_experiments(username, limit=8)
+
+    enrich_experiment(exp, {exp.get("target_id"): target_name})
     exp = prepare_experiment_for_view(exp)
 
     return render_template(
@@ -1140,6 +1309,7 @@ def start_experiment(experiment_id):
         return res
 
     username = session["username"]
+
     try:
         experiment_object_id = ObjectId(experiment_id)
     except Exception:
@@ -1247,29 +1417,22 @@ def experiment_safety_report(experiment_id):
     })
 
 
-
-#profile
 @app.route('/profile')
 def profile():
     """Render the logged-in user's profile view."""
     res = ensure_user_logged_in()
-
     if res is None:
         user = {
-            #"username": session["user"],
             "username": session["username"],
             "email": session["email"]
         }
         res = render_template('profile.html', user=user)
-
     return res
 
-#logout
 
 @app.route('/logout')
 def logout():
     """Clear session and return user to login screen."""
-    #session.pop("user", None)
     session.clear()
     flash("You have been logged out.", "success")
     return redirect(url_for('user_login'))
@@ -1277,4 +1440,3 @@ def logout():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
