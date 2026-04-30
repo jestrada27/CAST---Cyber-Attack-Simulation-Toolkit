@@ -133,7 +133,10 @@
           {% if request_details.status == "pending" %}
             <button onclick="approveRequest('{{ request_details._id }}')">Approve</button>
             <button onclick="denyRequest('{{ request_details._id }}')">Deny</button>
-    {% endif %}
+          {% endif %}
+        {% if request_details.status == "denied" or request_details.is_orphaned %}
+          <button onclick="deleteRequest('{{ request_details._id }}')">Delete Request</button>
+        {% endif %}
       </div>
       </section>
     {% endif %}
@@ -201,4 +204,20 @@
       location.reload();
     })
   }
+
+  function deleteRequest(id){
+    fetch(`/delete_request/${id}`, {
+      method: "DELETE",
+       headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      group_id: "{{ selected_group_id }}"
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message);
+    location.reload();
+  })
+}
+    
 </script>
