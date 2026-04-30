@@ -245,7 +245,10 @@ def get_request_info(user_id, attack_id):
     # gets experiment and checks for it. then sets up the experiement for the operator page
     experiment = collection_experiments.find_one({
     "_id": attack["experiment_id"]})
-    
+    attack["is_orphaned"] = False
+    if not experiment:
+        attack["is_orphaned"] = True
+
     if experiment:
         attack["module"] = experiment.get("module_id")
         attack["attempts"] = experiment.get("attempts")
@@ -309,3 +312,30 @@ def group_members(group_id, user_id):
             "username": user.get("username", "Unknown")
         })
     return True, serialization
+
+
+#function to delete a request
+def delete_request(user_id, attack_id, group_id):
+    request = collection_requests.find_one({"_id": ObjectId(attack_id)})
+
+    if not request:
+        return False, 'Request not found'
+    
+    if not authorized_operator_check(user_id, request["group_id"]): #fix
+        return False, "Unauthorized user for operator controls"
+    
+    if request["group_id"] != ObjectId(group_id):
+        return False, "Not the right group"
+    
+    experiment= collection_experiments.find_one({
+        "_id": request.get("experiment_id")
+    })
+
+    if request["status"] != "denied" and experiment:
+        return False, "Can only delete denied or orphaned requests"
+
+    collection_requests.delete_one({
+        "_id": ObjectId(attack_id)
+    })
+
+    return True, "Request deleted"
