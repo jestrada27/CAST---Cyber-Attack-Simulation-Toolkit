@@ -4,7 +4,7 @@ from datetime import datetime
 from bson import ObjectId
 from database import database_name
 from .operator import (approve_attack, deny_attack, get_pending_attack_requests,
-user_cancel_attack, get_all_requests, get_request_info, get_user_requests, get_admin_groups, group_members)
+user_cancel_attack, get_all_requests, get_request_info, get_user_requests, get_admin_groups, group_members, delete_request)
 
 
 #blueprint for route and database collection data
@@ -247,3 +247,19 @@ def operator_group_route():
 
     groups = get_admin_groups(user_id)
     return jsonify({"success": True, "groups": groups})
+
+
+#route for deleting request
+@operator_bp.route("/delete_request/<attack_id>", methods=["DELETE"])
+def delete_request_route(attack_id):
+    if "user_id" not in session:
+       return {"success": False, "message": "Not logged in"}, 401
+   
+    user_id = ObjectId(session["user_id"])
+
+    data = request.get_json() or {}
+    group_id = data.get("group_id")
+
+    success, message = delete_request(user_id, attack_id, group_id)
+
+    return jsonify({"success": success, "message": message})
