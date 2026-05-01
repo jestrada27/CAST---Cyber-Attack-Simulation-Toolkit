@@ -1,5 +1,5 @@
 from flask import Blueprint, request, session, jsonify
-from .user_manage import  create_group, userJoinServer, inviteUserToServer, getUserServers, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser
+from .user_manage import  create_group, userJoinServer, inviteUserToServer, getUserServers, addUserToServer, banUserFromServer, changePrivilegeForUser, getUsersForServer, getAllActivityForUser, getActivityForUser, getUsersInvitations, denyInvite, removeUserFromGroup,isUserAdmin
 
 user_manage_bp = Blueprint("user_management", __name__, url_prefix="/groups")
 
@@ -19,7 +19,8 @@ def create_user_group():
 
     group_id, user_key, admin_key = create_group(name, owner)
     if not group_id:
-        return jsonify({"group_id": group_id, "user_key": user_key, "admin_key": admin_key})
+        return {"success": False, "message": "Group id empty, create_user_group failed"}
+        #return jsonify({"group_id": group_id, "user_key": user_key, "admin_key": admin_key})
     
     return jsonify({"success": True, "group_id": str(group_id), "user_key": user_key, "admin_key": admin_key})
     
@@ -94,16 +95,26 @@ def invite_user():
     #admin = data.get("admin")
     admin = session["user_id"]
     group_id = data.get("group_id")
-    admin_key = data.get("admin_key")
+    #admin_key = data.get("admin_key")
+    invited_user = data.get("invited_user_name")
 
-    if not all([group_id, admin_key]):
+    if not all([group_id, invited_user]):
         return jsonify({"success": False, "message": "Missing fields"}), 400
     
-    invited_user, invite = inviteUserToServer(admin, group_id, admin_key)
-    if not invited_user: 
+    invite_succuess = inviteUserToServer(admin, group_id, invited_user)
+    if not invite_succuess:
         return jsonify({"success": False}), 403
-    return jsonify({"success": True, "invite": invite})
+    return jsonify({"success": True})
 
+
+@user_manage_bp.route("/get_user_invites", methods=["GET"])
+def get_user_invites():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    
+    groups_were_invited_to = getUsersInvitations(session["user_id"])
+
+    return jsonify({"success": True, "groups": groups_were_invited_to})
 
 @user_manage_bp.route("/ban_user", methods=["POST"] )
 def ban_user():
@@ -157,7 +168,7 @@ def join_group():
         return jsonify({"success": False}), 400
     #username = data.get("username")
     user_id = session["user_id"]
-    invite = data.get("invite")
+    invite = data.get("group_id")
 
     if not invite:
         return {"success": False, "message": "No invite"}, 400
@@ -167,6 +178,24 @@ def join_group():
         return jsonify({"success": False}), 403
     return jsonify({"success": True, "user_key": key})
 
+@user_manage_bp.route("/deny_invite", methods=["POST"])
+def deny_invite():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False}), 400
+    user_id = session["user_id"]
+    group_id = data.get("group_id")
+
+    if not group_id:
+        return {"success": False, "message": "Missing field group_id"}, 400
+
+    denyInvite(user_id, group_id)
+    
+    return jsonify({"success": True})
+
 
 @user_manage_bp.route("/user_group", methods=["GET"])
 def user_group():
@@ -175,3 +204,31 @@ def user_group():
     
     user_in_groups = getUserServers(session["user_id"])
     return jsonify({"groups": user_in_groups})
+
+@user_manage_bp.route("/remove_user", methods=["POST"])
+def remove_user_from_group():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False}), 400
+    group_id = data.get("group_id")
+
+    if not group_id:
+        return {"success": False, "message": "Missing field group_id"}, 400
+    removeUserFromGroup(session["user_id"], group_id)
+    return jsonify({"success": True})
+
+@user_manage_bp.route("/is_admin", methods=["POST"])
+def is_admin():
+    if "user_id" not in session:
+        return {"success": False, "message": "Not logged in"}, 401
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False}), 400
+
+    group_id = data.get("group_id")
+    if not group_id:
+        return {"success": False, "message": "Missing field group_id"}, 400
+    res = isUserAdmin(session["user_id"], group_id)
+    return jsonify({"is_admin":res})
