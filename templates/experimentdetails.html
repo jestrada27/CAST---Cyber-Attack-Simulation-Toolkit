@@ -6,6 +6,25 @@
   <title>experimentdetail</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
   <script src="https://kit.fontawesome.com/d08b4d642a.js" crossorigin="anonymous"></script>
+  <!-- Noah - styling for the butons and other-->
+  <style>
+    /* style for the delete experiment button  */
+    .delete-btn {
+        background: rgba(220,38,38,.15);
+        color: var(--text);
+        border: 1px solid rgba(220,38,38,.25);
+        padding: 6px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+    }
+    /* hover color when the user hovers over delete */
+    .delete-btn:hover {
+           background: rgba(220,38,38,.25);
+           border-color: rgba(220,38,38,.35);
+       }
+  </style>
 </head>
 
 <body>
@@ -41,10 +60,10 @@
       </section>
 
       <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
-        <div class="user-avatar">m</div>
+         <div class="user-avatar">{{ username[0]|upper }}</div>
         <div class="user-meta">
           <div class="user-name">{{ username }}</div>
-          <div class="user-role">student</div>
+          <!-- <div class="user-role">student</div> -->
         </div>
       </a>
     </aside>
@@ -147,6 +166,29 @@
             </p>
           </div>
         </div>
+      <!-- Noah - message flash for error with experiment -->
+       {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div style="margin-bottom:10px; color:red">
+              {% for category, message in messages %}
+              <div class="tag {% if category=='success' %}ok{% endif %}">
+                {{ message }}
+              </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+      <div class="panel" style="margin-top:16px;">
+        <!-- display experiment metadata -->
+        <p><b>target:</b> {{ target_name }}</p>
+        <p><b>module:</b> {{ exp.module_id }}</p>
+        <p><b>attempts:</b> {{ exp.attempts }}</p>
+        <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
+        <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
+        <p><b>description:</b> {{ exp.description if exp.description else "none" }}</p>
+        <p><b>notes:</b> {{ exp.notes if exp.notes else "none" }}</p>
+        <!-- Noah: added group name to detail page for operator control-->
+        <p><b>group: </b> {{ group_name}}</p>
 
         {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
           <div style="margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -285,6 +327,23 @@
             <p><b>duration cap:</b> {{ exp.safety.time_limit.max_duration_seconds if exp.safety.time_limit is defined else "n/a" }} seconds</p>
             <p><b>scheduled end:</b> {{ exp.safety.time_limit.scheduled_end if exp.safety.time_limit is defined and exp.safety.time_limit.scheduled_end else "not set" }}</p>
             <p><b>kill switch:</b> {{ "engaged" if exp.safety.kill_switch is defined and exp.safety.kill_switch.engaged else "ready" }}</p>
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Results</h2>
+            <p><b>mode:</b> {{ exp.results.mode }}</p>
+            <p><b>avg throughput:</b> {{ exp.results.avg_throughput_kbps }} kbps</p>
+            <p><b>avg detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
+            <p><b>guidance:</b> {{ exp.results.guidance }}</p>
+            <p><b>samples:</b> {{ exp.results.sample_count }}</p>
+            {% if exp.results.success_rate_percent is defined %}
+              <p><b>success rate:</b> {{ exp.results.success_rate_percent }}%</p>
+            {% endif %}
+            {% if exp.results.status_counts is defined %}
+              <p><b>status counts:</b> {{ exp.results.status_counts }}</p>
+            {% endif %}
+            <!-- {% if exp.results %}
+              <p>Results: {{ exp.results }}</p>
+              {% else %}
+              <p>No results yet.</p>
+            {% endif %} -->
           </div>
         {% endif %}
 
@@ -326,6 +385,11 @@
       <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
         <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">Dashboard</a>
         <a class="btn-secondary" href="{{ url_for('experiment_history') }}">History</a>
+          <!-- Noah F - button for deleting the target -->
+        <button class="delete-btn" onclick="deleteTarget('{{ exp._id|string }}')">
+          Delete
+        </button>
+        <!-- </form> -->
       </div>
     </main>
 
@@ -340,3 +404,26 @@
   </div>
 </body>
 </html>
+<!-- </html> -->
+
+<script>
+//Noah - jsfunction for deleting an experiment. uses the delete_experiment route to do so
+function deleteTarget(id){
+  if (!confirm('Are you sure you want to delete this experiment?')) {
+    return;
+  }
+  fetch(`/delete_experiment/${id}`, {
+    method: "DELETE"
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success){
+      // alert('Experiment deleted successfully!');
+      window.location.href  = "/main_dashboard"
+    } else {
+      alert("Delete failed: " + data.message);
+    }
+  });
+}
+
+</script>

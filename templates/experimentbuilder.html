@@ -46,10 +46,10 @@
       </section>
 
       <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
-        <div class="user-avatar">m</div>
+        <div class="user-avatar">{{ username[0]|upper }}</div>
         <div class="user-meta">
           <div class="user-name">{{ username }}</div>
-          <div class="user-role">student</div>
+          <!-- <div class="user-role">student</div> -->
         </div>
       </a>
     </aside>
@@ -150,6 +150,17 @@
           <label class="field">
             <span>notes</span>
             <textarea name="notes" rows="3" placeholder="optional notes about this test"></textarea>
+          </label>
+
+          <!--Noah: added group for experiment builder for operator control -->
+           <label class="field">
+            <span>Group</span>
+            <select name="group_id" required>
+              <option value="">Select group</option>
+              {% for group in user_groups %}
+              <option value="{{ group.group_id }}">{{ group.name }}</option>
+            {% endfor %}
+            </select>
           </label>
 
           <label class="field checkbox">

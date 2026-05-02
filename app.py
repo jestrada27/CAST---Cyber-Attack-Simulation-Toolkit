@@ -4,6 +4,9 @@ from bson.objectid import ObjectId
 from datetime import datetime
 import os
 import bcrypt
+from dotenv import load_dotenv
+load_dotenv()
+#from datetime import datetime, timedelta
 import time
 from copy import deepcopy
 from itsdangerous import URLSafeTimedSerializer as Serializer
@@ -16,11 +19,19 @@ from Attacks.SafetyEnforcementEngine import (
     normalize_safety_settings,
 )
 
+#attack
+from Attacks.ModuleRunners import run_xss_experiment
+
+
+# Mongo collections used directly by this module.
 from database import database_name
 
 collection_users = database_name["users"]
 collection_targets = database_name["targets"]
 collection_experiments = database_name["experiments"]
+#Noah: added attack log collection and new attack request collection
+collection_attacks = database_name["attacks"]
+collection_requests = database_name["attack_requests"]
 
 app = Flask(__name__)
 
@@ -40,6 +51,16 @@ from reports import reports_bp
 app.register_blueprint(reports_bp)
 
 
+# from xss_attack import xss_bp
+# app.register_blueprint(xss_bp)
+#Noah - setup for blueprints for operator and reg_and_whitelist
+from operator_controls import operator_bp
+app.register_blueprint(operator_bp)
+
+from reg_and_whitelist import whitelist_bp
+app.register_blueprint(whitelist_bp)
+
+#password checking for if the password is a certain length and complexity
 def good_password_check(password):
     """Validate password complexity and return an error string or None."""
     lowercase = False
@@ -262,6 +283,8 @@ def change_username():
         return {"success": False, "message": "Username already in use"}, 400
 
     user_id = ObjectId(session["user_id"])
+    old_username = session["username"]
+    # Update MongoDB
     result = collection_users.update_one(
         {"_id": user_id},
         {"$set": {"username": new_username}}
@@ -269,6 +292,16 @@ def change_username():
 
     if result.modified_count > 0:
         session["username"] = new_username
+    #Noah - fixed change named for username / owner operator control 
+        collection_targets.update_many(
+            {"owner": old_username},
+             {"$set": {"owner": new_username}}
+        )
+
+        collection_experiments.update_many(
+            {"owner": old_username},
+             {"$set": {"owner": new_username}}
+        )
 
     return {"success": result.modified_count == 1}
 
@@ -747,7 +780,24 @@ def run_experiment_now(experiment, target, user):
                 "category": status_flash_category(status),
             }
 
-        if module_id in {"sqli", "xss", "replay"}:
+        if module_id == "xss":
+            results = run_xss_experiment(experiment, collection_targets)
+
+            # if your xss result doesn't already include safety_summary,
+            # this safely falls back
+            status = derive_run_status(
+                dry_run,
+                results.get("safety_summary") if isinstance(results, dict) else None
+            )
+
+            return {
+                "status": status,
+                "results": results,
+                "message": "XSS attack finished.",
+                "category": status_flash_category(status),
+            }
+
+        if module_id in {"sqli", "replay"}:
             results = run_generic_module_simulation(
                 module_id=module_id,
                 attempts=attempts,
@@ -978,7 +1028,7 @@ def experiment_builder():
                 selected_safety=selected_safety,
             )
 
-        target_exists = collection_targets.find_one({"_id": target_object_id, "owner": username})
+        target_exists = collection_targets.find_one({"_id": target_object_id, "owner": username}, {"_id": 1, "consent_status": 1}) #noah - finds target
         if not target_exists:
             flash("Selected target was not found for your account.", "danger")
             selected_safety = safety_form_state_from_settings(build_safety_settings_from_form(request.form, {}, username))
@@ -995,6 +1045,13 @@ def experiment_builder():
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
             )
+        
+        #Noah - checks for approval if not, means not whitelisted
+        if target_exists.get("consent_status") != "approved":
+            flash("Target is not whitelisted.", "danger")
+        #     return redirect(url_for("experiment_builder"))
+        # elif target_exists and target_exists.get("consent_status") == "approved":
+        #     flash("Target is whitelisted.", "success")
 
         description = request.form.get("description", "").strip()
         notes = request.form.get("notes", "").strip()
@@ -1017,6 +1074,11 @@ def experiment_builder():
                 selected_safety=selected_safety,
             )
 
+        group_id = request.form.get("group_id")
+        if not group_id:
+            flash("Select group")
+            return redirect(url_for("experiment_builder"))
+        
         exp_doc = {
             "owner": username,
             "target_id": target_object_id,
@@ -1028,11 +1090,63 @@ def experiment_builder():
             "notes": notes,
             "safety": safety_settings,
             "status": "Queued",
+            #"request": "Pending Approval",
+            "group_id": ObjectId(group_id),
             "created_at": datetime.utcnow()
         }
 
+        #Noah: added some group collection for document for attacks/experiments
+        user_group = collection_users.find_one(
+            {"_id": ObjectId(session["user_id"])},
+            {"groups": 1},
+        ).get("groups", [])
+        
+        if not collection_users.find_one({
+            "_id": ObjectId(session["user_id"]),
+            "groups.group_id": ObjectId(group_id)
+            }):
+            flash("Invalid group selection.", "danger")
+            return redirect(url_for("experiment_builder"))
+        
         inserted = collection_experiments.insert_one(exp_doc)
         inserted_id = inserted.inserted_id
+        
+        request_exist_check = collection_requests.find_one({
+            "experiment_id": inserted_id
+            # "experiment_id": experiment_object_id
+
+        })
+        #checks for admin
+        is_admin = any(group.get("group_id") == ObjectId(group_id) and group.get("role") == "admin" for group in user_group)
+        request_status = "approved" if is_admin else "pending"
+        if request_exist_check:
+            return False, "Request exists"
+        #     collection_requests.insert_one({
+        #         "experiment_id": inserted_id,
+        #         # {"experiment_id": experiment_object_id}
+        #         "group_id": ObjectId(group_id),
+        #         "submitted_by":  ObjectId(session["user_id"]),
+        #         "username": session["username"],
+        #         "status": "pending",
+        #         "created_at": datetime.utcnow()
+        # })
+        else:
+        #Noah - inserts info for attack requests 
+            collection_requests.insert_one({
+                #user_id?
+                "experiment_id": inserted_id, 
+                "group_id": ObjectId(group_id),
+                "submitted_by": ObjectId(session["user_id"]),
+                "username": session["username"],
+                "status": request_status,
+                "created_at": datetime.utcnow()
+            })
+        # admin check for if admin
+        if is_admin:
+            flash("Experiment approved - admin detected.")
+        else:
+            flash("Experiment created. Waiting for approval.", "success")
+        return redirect(url_for("experimentdetails", experiment_id=str(inserted_id)))
 
         # Run the selected module immediately when a runner is available.
         created_exp = collection_experiments.find_one({"_id": inserted_id, "owner": username})
@@ -1052,7 +1166,13 @@ def experiment_builder():
         else:
             flash("Experiment created, but execution context was not found.", "warning")
         return redirect(url_for("experimentdetails", experiment_id=str(inserted_id)))
-
+    
+    #Noah: user doc info for tying it to the user based on groups so that it gets name
+    user_doc = collection_users.find_one({"_id": ObjectId(session["user_id"])})
+    user_groups = user_doc.get("groups", []) 
+    for g in user_groups:
+        group_doc = database_name["groups"].find_one({"_id": g["group_id"]})
+        g["name"] = group_doc["name"] 
     return render_template(
         "experimentbuilder.html",
         username=username,
@@ -1065,6 +1185,8 @@ def experiment_builder():
         selected_rate_limit=selected_rate_limit,
         selected_dry_run=selected_dry_run,
         selected_safety=selected_safety,
+        #noah: new to get user_groups to builder html
+        user_groups=user_groups
     )
 
 @app.route("/experiment_history")
@@ -1167,7 +1289,7 @@ def targets():
     res = ensure_user_logged_in()
     if res is not None:
         return res
-
+    from reg_and_whitelist.registrate_whitelist import target_validation, target_by_status_list #Noah: gets functions from blueprint
     username = session["username"]
 
     if request.method == "POST":
@@ -1223,6 +1345,13 @@ def targets():
                     "approved_users": approved_users,
                 }),
             )
+        
+        #if not name or not ip_or_url: #Noah - checks for valid target using target validation
+        valid_target, message = target_validation(name, ip_or_url, username)
+        if not valid_target:
+            #flash("name and ip_or_url are required.", "danger")
+            flash(message, "danger")
+            return redirect(url_for("targets"))
 
         # per-user uniqueness (same owner can't create same name twice)
         if collection_targets.find_one({"owner": username, "name": name}):
@@ -1244,12 +1373,25 @@ def targets():
                 }),
             )
 
+            # return redirect(url_for("targets"))
+        #Noah: added params for integration
+        # param = (request.form.get("param") or "q").strip()
+        # method = (request.form.get("method") or "GET").upper()
+        # collection_targets.insert_one({
+        #     "owner": username,
+        #     "name": name,
+        #     "ip_or_url": ip_or_url,
+        #     # "param": param,
+        #     # "method": method,
+        #     "consent_status": "pending",
+        #     "created_at": datetime.utcnow()
+        # })
         collection_targets.insert_one({
             "owner": username,
             "name": name,
             "ip_or_url": ip_or_url,
             "environment": environment,
-            "consent_status": consent_status,
+            "consent_status": "pending",   
             "allowed_services": allowed_services,
             "allowed_ports": allowed_ports,
             "allowed_accounts": allowed_accounts,
@@ -1261,7 +1403,10 @@ def targets():
         return redirect(url_for("targets"))
 
     targets_list = list(collection_targets.find({"owner": username}).sort("created_at", -1))
-    return render_template("targets.html", username=username, targets=targets_list, form_state=target_form_state({"approved_users": [username]}))
+    whitelisted_targets = [target for target in targets_list if target.get("consent_status") == "approved"]
+    target_statuses = target_by_status_list(username)
+    return render_template("targets.html", username=username, targets=targets_list, form_state=target_form_state({"approved_users": [username]}), whitelisted_targets=whitelisted_targets, target_statuses=target_statuses)
+    
 
 
 @app.route("/experimentdetails/<experiment_id>")
@@ -1283,10 +1428,25 @@ def experimentdetails(experiment_id):
     if not exp:
         flash("experiment not found", "danger")
         return redirect(url_for("main_dashboard"))
+    #Noah: makes results none for page if needed
+    if "results" not in exp:
+        exp["results"] = None
 
     target = collection_targets.find_one({"_id": exp["target_id"]})
     target_name = target["name"] if target else "unknown target"
     recent_experiments = get_recent_experiments(username, limit=8)
+    #Noah: fixes group name for experiment details
+    group_name = ""
+    if exp.get("group_id"):
+        group_doc = database_name["groups"].find_one({"_id": exp["group_id"]}, {"name": 1})
+        if group_doc:
+            group_name = group_doc.get("name", "Unknown")
+
+    # Noah - gets the request doc and formats it correctly
+    request_doc = collection_requests.find_one({"experiment_id": experiment_object_id, 
+    "group_id": exp.get("group_id")})
+    if request_doc:
+        request_doc["_id"] = str(request_doc["_id"])
 
     enrich_experiment(exp, {exp.get("target_id"): target_name})
     exp = prepare_experiment_for_view(exp)
@@ -1296,8 +1456,11 @@ def experimentdetails(experiment_id):
         exp=exp,
         target=target or {},
         target_name=target_name,
+        #noah: experiment details name
+        group_name=group_name,
         username=username,
-        recent_experiments=recent_experiments
+        recent_experiments=recent_experiments,
+        request_doc=request_doc
     )
 
 
@@ -1344,6 +1507,37 @@ def start_experiment(experiment_id):
         {"_id": experiment_object_id, "owner": username},
         {"$set": update_doc},
     )
+    if execution["results"]:
+        collection_attacks.insert_one({
+        "user_id": ObjectId(session["user_id"]),
+        "experiment_id": experiment_object_id,
+        "attack_type": execution["results"].get("attack_type") or exp.get("module_id"),
+        "timestamp": datetime.utcnow(),
+        "status": execution["status"],
+        "report_available": True,
+        "report_url": "https://example.com/whitepaper.pdf",
+        "details": execution["results"]
+    })
+        
+    user_request = collection_requests.find_one({
+        "experiment_id": experiment_object_id,
+        "group_id": exp.get("group_id"),
+    })
+
+    #Noah: updates request to failed or completed if done
+    # if user_request:
+    #     new_status = "completed" if ok else "failed"
+    if user_request:
+        request_status = (
+            "completed" if execution["status"] not in ["Failed", "Safety Blocked", "Terminated"] else "failed"
+        )
+        
+        collection_requests.update_one(
+            {"_id": user_request["_id"]},
+            {"$set": {"status": request_status}}
+        )
+
+
     flash(execution["message"], execution["category"])
 
     return redirect(url_for("experimentdetails", experiment_id=experiment_id))
@@ -1367,6 +1561,53 @@ def trigger_experiment_kill_switch(experiment_id):
     if not exp:
         flash("experiment not found", "danger")
         return redirect(url_for("main_dashboard"))
+    #Noah: gets user and group info before running attack
+    user_doc = collection_users.find_one({"_id": ObjectId(session["user_id"])}, {"groups": 1})
+    user_groups = user_doc.get("groups", [])
+
+# Noah: Checks if user is admin in this group
+    is_admin = any(g.get("group_id") == exp.get("group_id") and g.get("role") == "admin" for g in user_groups)
+
+# Noah: Gets experiment request
+    user_request = collection_requests.find_one({
+        "experiment_id": experiment_object_id,
+        "group_id": exp.get("group_id")
+})
+
+
+    if not is_admin and (not user_request or user_request.get("status") not in ["approved", "completed"]):
+        flash("Experiment not approved.", "danger")
+        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+    # user_request = collection_requests.find_one({
+    #     "experiment_id": experiment_object_id,
+    #     "group_id": exp["group_id"]
+    # })
+    # if not user_request or user_request.get("status") != "approved":
+    #     print("Not approved")
+    #     flash("Experment not approved.", "danger")
+    #     return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+
+    #Noah - gets target in the database
+    target_exists = collection_targets.find_one({
+        "_id": exp["target_id"],
+        "owner": username
+    }, {"consent_status": 1})
+
+    #if doesnt exist goes back to experimentdetails
+    if not target_exists:
+        flash("Target no longer exists.", "danger")
+        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+    #if not approved then cant, else if then its approved
+    if target_exists.get("consent_status") != "approved":
+        flash("Target is not whitelisted.", "danger")
+        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+
+    # if not target_exists or target_exists.get("consent_status") != "approved":
+    #     flash("Target is not whitelisted.", "danger")
+    #     return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+    elif target_exists and target_exists.get("consent_status") == "approved":
+        flash("Target is whitelisted.", "success")
+
 
     reason = (request.form.get("reason") or "Emergency stop requested by operator.").strip()
     collection_experiments.update_one(

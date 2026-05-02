@@ -4,6 +4,66 @@
   <meta charset="utf-8" />
   <title>Targets</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='Dashboard/dashboard.css') }}">
+  <!-- Noah - JS style for the buttons used and other things used -->
+  <style>
+    /* success button style */
+    .btn-success {
+      background: rgba(73,209,122,.12);
+      border: 1px solid rgba(73,209,122,.25);
+      color: var(--text);
+    }
+    /* danger button style */
+    .btn-danger {
+      background: rgba(220,38,38,.12);
+      border: 1px solid rgba(220,38,38,.25);
+      color: var(--text);
+    }
+    /* normal button style */
+    button {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 300;
+      transition: all 0.2s;
+    }
+    /* filter button style */
+    .filter-btn {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 300;
+      transition: all 0.2s;
+      color: white;
+    }
+    /* approved/revoked button style */
+    .filter-btn.approved {background: rgba(73,209,122,.12); border: 1px solid rgba(73,209,122,.25);}
+    .filter-btn.revoked {background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.25);}
+    
+    /* 2nd normal button style */
+    .btn-norm {
+        background: rgba(110,168,254,.25);
+        color: var(--text);
+        border: 1px solid rgba(110,168,254,.35);
+    }
+
+    /* style for being able to scroll for the tables/containers */
+     .scroll-panel {
+        background: rgba(17,26,46,.75);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 30px;
+        margin-top: 25px;
+        max-height: 250px;
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+    
+  </style>
 </head>
 <body>
   <div class="layout">
@@ -97,8 +157,9 @@
         </form>
       </div>
 
-      <div class="panel" style="margin-top:16px;">
-        <h2 style="margin:0 0 10px 0; font-size:16px;">Your Targets</h2>
+      <!-- LIST OF EXISTING TARGETS -->
+      <div class="panel scroll-panel" style="margin-top:16px;">
+        <h2 style="margin:0 0 10px 0; font-size:16px;">Your targets</h2>
 
         {% if targets|length == 0 %}
           <p style="color: var(--muted);">No targets yet</p>
@@ -110,13 +171,189 @@
                 <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span><br>
                 <span style="color:var(--muted); font-size:12px;">env: {{ t.environment or "lab" }} | services: {{ (t.allowed_services or [])|join(", ") if t.allowed_services else "default" }}</span><br>
                 <span style="color:var(--muted); font-size:12px;">ports: {{ (t.allowed_ports or [])|join(", ") if t.allowed_ports else "any" }} | approved users: {{ (t.approved_users or [])|join(", ") if t.approved_users else username }}</span>
+            <div id="target-{{ t._id }}" class="item" style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <b>{{ t.name }}</b><br>
+                <!-- Noah - sets up toggle whitelist button based on if the target is whitelisted or not -->
+                <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span>
+                  <!-- <form method="POST" action="{{ url_for('target_and_whitelist.toggle_whitelist_route', target_id=t._id) }}">
+                    <button type="submit"> -->
+                  <button onclick="toggleWhitelist('{{ t._id }}')"
+                    class="{% if t.consent_status == 'approved' %}btn-danger{% else %}btn-success{% endif %}">
+                      {% if t.consent_status == "approved" %}
+                        Unwhitelist
+                      {% else %}
+                        Whitelist
+                      {% endif %}
+                    </button>
+                    <!-- Noah - button for the being able to delete a target from the targets you made -->
+                    <button onclick="deleteTarget('{{ t._id }}')" class="btn-danger">
+                    Delete target
+                  </button>
+                  <!-- </form> -->
               </div>
               <span class="pill">{{ t.consent_status }}</span>
             </div>
           {% endfor %}
         {% endif %}
       </div>
+
+      <!-- Noah F - Whitelisted targets -->
+       <div class="panel scroll-panel whitelist-container" style="margin-top:16px;">
+          <!-- <div class="panel" style="margin-top:16px;"> -->
+        <h2 style="margin:0 0 10px 0; font-size:16px;">Whitelisted targets - Can be experimented on</h2>
+          {% if whitelisted_targets|length == 0 %}
+            <p style="color: var(--muted);">No whitelisted targets</p>
+          {% else %}
+          <!-- displays a list of the whitelisted targets that the user made -->
+            {% for t in whitelisted_targets %}
+              <div class="item" style="display:flex; justify-content:space-between; align-items:center;">
+                <b> {{ t.name }}</b>
+              </div>
+            {% endfor %}
+           {% endif %}
+      </div>
+
+      <!-- Noah - Targets by status -->
+      <div class="panel scroll-panel" style="margin-top:16px;">
+        <h2 style="margin:0 0 10px 0; font-size:16px;">Targets by status</h2>
+        
+        <!-- Acts as a filter for the user to choose if they want to see the list of all targets, revoked, or pending -->
+        <div style="margin-bottom:10px">
+          <button class="btn-norm" onclick="showTargetStatus('all')">All targets</button>
+          <button class="btn-norm" onclick="showTargetStatus('pending')">Pending targets</button>
+          <button class="filter-btn approved" onclick="showTargetStatus('approved')">Whitelisted/approved targets</button>
+          <button class="filter-btn revoked" onclick="showTargetStatus('revoked')">Not whitelisted/revoked targets</button>
+        </div>
+        <div id="status-container" style="margin-top:10px;"> </div>
+
+      </div>
     </main>
   </div>
 </body>
 </html>
+
+<!-- Noah : JS functions used for the page for better UX-->
+<script>
+  let baseStatus = null
+
+  // js function to show the status of the target for the target by status using the route
+  function showTargetStatus(status){
+    if (baseStatus){
+      filterStatus(status);
+      return;
+    }
+    fetch("/status_target")
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) return;
+        baseStatus = data.targets
+        filterStatus(status);
+      });
+      
+  }
+
+  //js fucntion to filter for each status for the target
+  function filterStatus(status){
+    const statusContainer = document.getElementById("status-container");
+    statusContainer.innerHTML = "";
+
+    if (status === "all"){
+      for (const eachStatus in baseStatus){
+        baseStatus[eachStatus].forEach(target => {
+          statusContainer.innerHTML += `<div>${target.name} - ${eachStatus}</div>`;
+        });
+      }
+    }
+
+    else if (status === "pending"){
+      if (!baseStatus["pending"] || baseStatus["pending"].length === 0){
+        statusContainer.innerHTML = "<p>No targets pending</p>"
+      }
+      // baseStatus["pending"].forEach(target => {
+      (baseStatus["pending"] || []).forEach(target => {
+        statusContainer.innerHTML += `<div>${target.name} - pending</div>`;
+      })
+
+    }
+    else if (status === "approved"){
+      if (!baseStatus["approved"] || baseStatus["approved"].length === 0){
+        statusContainer.innerHTML = "<p>No targets approved</p>"
+      }
+      // baseStatus["approved"].forEach(target => {
+      (baseStatus["approved"] || []).forEach(target => {
+        statusContainer.innerHTML += `<div>${target.name} - approved</div>`;
+      })
+    }
+
+    else if (status === "revoked"){
+      if (!baseStatus["revoked"] || baseStatus["revoked"].length === 0){
+        statusContainer.innerHTML = "<p>No targets revoked</p>"
+      }
+      // baseStatus["revoked"].forEach(target => {
+      (baseStatus["revoked"] || []).forEach(target => {
+        statusContainer.innerHTML += `<div>${target.name} - revoked</div>`;
+      })
+    }
+  }
+
+  //js function to use the whitelist toggle for the user to toggle between whitelist and unewhitelist
+  function toggleWhitelist(id){
+    if (!confirm("Are you sure?")) return;
+      fetch(`/toggle_target/${id}`, {
+        method: "POST"
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success){
+          
+          whitelistUpdate();
+          location.reload();
+          // showTargetStatus();
+        }
+        else{
+          alert(data.message);
+        }
+      })
+      
+    }
+
+    //js function to update the whitelisted list showing the user's whitelisted targets
+    function whitelistUpdate(id){
+      fetch("/whitelisted_target_list")
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) return;
+          const container = document.querySelector(".whitelist-container");
+          if (!container) return;
+          container.innerHTML = ""
+          data.target_list.forEach(t => {
+            container.innerHTML += `<div class="item">
+              <b>${t.name}</b>
+              <span>${t.consent_status}</span>
+            </div>
+            `;
+          });
+      });
+    }
+
+    //function for deleting a target on the targets page 
+    function deleteTarget(id){
+      if (!confirm('Are you sure you want to delete this target?')) {
+        return;
+      }
+      fetch(`/delete_target/${id}`, {
+        method: "DELETE"
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success){
+          // alert('Experiment deleted successfully!');
+          location.reload();
+        } else {
+          alert("Delete failed: " + data.message);
+        }
+      });
+    }
+  
+</script>
