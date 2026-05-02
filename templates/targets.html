@@ -62,6 +62,10 @@
         overflow-y: auto;
         overflow-x: auto;
     }
+
+    .left-sidebar {
+      height: auto;
+    }
     
   </style>
 </head>
@@ -165,19 +169,17 @@
           <p style="color: var(--muted);">No targets yet</p>
           {% else %}
           {% for t in targets %}
-            <div class="item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div id="target-{{ t._id }}" class="item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
               <div>
                 <b>{{ t.name }}</b><br>
                 <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span><br>
                 <span style="color:var(--muted); font-size:12px;">env: {{ t.environment or "lab" }} | services: {{ (t.allowed_services or [])|join(", ") if t.allowed_services else "default" }}</span><br>
                 <span style="color:var(--muted); font-size:12px;">ports: {{ (t.allowed_ports or [])|join(", ") if t.allowed_ports else "any" }} | approved users: {{ (t.approved_users or [])|join(", ") if t.approved_users else username }}</span>
-            <div id="target-{{ t._id }}" class="item" style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <b>{{ t.name }}</b><br>
+                </div>
+           
                 <!-- Noah - sets up toggle whitelist button based on if the target is whitelisted or not -->
-                <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span>
-                  <!-- <form method="POST" action="{{ url_for('target_and_whitelist.toggle_whitelist_route', target_id=t._id) }}">
-                    <button type="submit"> -->
+                <!-- <span style="color:var(--muted); font-size:12px;">{{ t.ip_or_url }}</span> -->
+                <div style="display: flex; gap: 10px; align-items: center;">
                   <button onclick="toggleWhitelist('{{ t._id }}')"
                     class="{% if t.consent_status == 'approved' %}btn-danger{% else %}btn-success{% endif %}">
                       {% if t.consent_status == "approved" %}
@@ -191,8 +193,8 @@
                     Delete target
                   </button>
                   <!-- </form> -->
+               <span class="pill">{{ t.consent_status }}</span>
               </div>
-              <span class="pill">{{ t.consent_status }}</span>
             </div>
           {% endfor %}
         {% endif %}
