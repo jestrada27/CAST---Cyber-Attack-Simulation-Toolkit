@@ -1483,11 +1483,41 @@ def start_experiment(experiment_id):
     if not exp:
         flash("experiment not found", "danger")
         return redirect(url_for("main_dashboard"))
+    #Noah: gets user and group info before running attack
+    user_doc = collection_users.find_one({"_id": ObjectId(session["user_id"])}, {"groups": 1})
+    user_groups = user_doc.get("groups", [])
 
-    target = collection_targets.find_one({"_id": exp["target_id"], "owner": username})
-    if not target:
-        flash("target not found for this experiment", "danger")
+# Noah: Checks if user is admin in this group
+    is_admin = any(g.get("group_id") == exp.get("group_id") and g.get("role") == "admin" for g in user_groups)
+
+# Noah: Gets experiment request
+    user_request = collection_requests.find_one({
+        "experiment_id": experiment_object_id,
+        "group_id": exp.get("group_id")
+})
+
+    if not is_admin and (not user_request or user_request.get("status") not in ["approved", "completed"]):
+        flash("Experiment not approved.", "danger")
         return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+    
+    #Noah - gets target in the database
+    target = collection_targets.find_one({
+        "_id": exp["target_id"],
+        "owner": username
+    })
+
+    #if doesnt exist goes back to experimentdetails
+    if not target:
+        flash("Target no longer exists.", "danger")
+        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+    #if not approved then cant, else if then its approved
+    if target.get("consent_status") != "approved":
+        flash("Target is not whitelisted.", "danger")
+        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
+
+    elif target and target.get("consent_status") == "approved":
+        flash("Target is whitelisted.", "success")
+
 
     collection_experiments.update_one(
         {"_id": experiment_object_id, "owner": username},
@@ -1561,53 +1591,6 @@ def trigger_experiment_kill_switch(experiment_id):
     if not exp:
         flash("experiment not found", "danger")
         return redirect(url_for("main_dashboard"))
-    #Noah: gets user and group info before running attack
-    user_doc = collection_users.find_one({"_id": ObjectId(session["user_id"])}, {"groups": 1})
-    user_groups = user_doc.get("groups", [])
-
-# Noah: Checks if user is admin in this group
-    is_admin = any(g.get("group_id") == exp.get("group_id") and g.get("role") == "admin" for g in user_groups)
-
-# Noah: Gets experiment request
-    user_request = collection_requests.find_one({
-        "experiment_id": experiment_object_id,
-        "group_id": exp.get("group_id")
-})
-
-
-    if not is_admin and (not user_request or user_request.get("status") not in ["approved", "completed"]):
-        flash("Experiment not approved.", "danger")
-        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
-    # user_request = collection_requests.find_one({
-    #     "experiment_id": experiment_object_id,
-    #     "group_id": exp["group_id"]
-    # })
-    # if not user_request or user_request.get("status") != "approved":
-    #     print("Not approved")
-    #     flash("Experment not approved.", "danger")
-    #     return redirect(url_for("experimentdetails", experiment_id=experiment_id))
-
-    #Noah - gets target in the database
-    target_exists = collection_targets.find_one({
-        "_id": exp["target_id"],
-        "owner": username
-    }, {"consent_status": 1})
-
-    #if doesnt exist goes back to experimentdetails
-    if not target_exists:
-        flash("Target no longer exists.", "danger")
-        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
-    #if not approved then cant, else if then its approved
-    if target_exists.get("consent_status") != "approved":
-        flash("Target is not whitelisted.", "danger")
-        return redirect(url_for("experimentdetails", experiment_id=experiment_id))
-
-    # if not target_exists or target_exists.get("consent_status") != "approved":
-    #     flash("Target is not whitelisted.", "danger")
-    #     return redirect(url_for("experimentdetails", experiment_id=experiment_id))
-    elif target_exists and target_exists.get("consent_status") == "approved":
-        flash("Target is whitelisted.", "success")
-
 
     reason = (request.form.get("reason") or "Emergency stop requested by operator.").strip()
     collection_experiments.update_one(
