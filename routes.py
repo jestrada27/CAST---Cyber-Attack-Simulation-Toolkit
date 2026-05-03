@@ -265,27 +265,18 @@ def periodic_json_report(report_id):
    return periodic_json(attacks_list, found_report["generated_at"], found_report.get("start_period"), found_report.get("end_period"), found_report["_id"])
    #return periodic_json(found_report["attacks"], found_report["generated_at"])
 
-# Jorge 
-# Route for generating and downloading a PDF report for a specific individual attack
-# Takes the attack_id from the URL and uses it to find the attack in the database
+
 @reports_bp.route("/pdf_report/<attack_id>")
 def attack_pdf_report(attack_id):
-    # Check if the user is logged in before allowing access
     if "user_id" not in session:
         return jsonify({"success": False}), 401
 
-    # Get the current user's id from the session
     user_id = session["user_id"]
-
-    # Call the pdf_attack_report function to generate the PDF for the specific attack
-    # It looks up the attack by attack_id and user_id to make sure the user owns it
     result = pdf_attack_report(attack_id, user_id)
 
-    # If the attack wasn't found or PDF couldn't be generated, return an error
     if not result:
         return jsonify({"success": False, "message": "PDF Report not found"}), 404
 
-    # Return the generated PDF file to the user as a download
     return result
 
 @reports_bp.route("/periodic_pdf/<report_id>")
