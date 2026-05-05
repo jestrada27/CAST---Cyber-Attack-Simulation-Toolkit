@@ -951,6 +951,12 @@ def experiment_builder():
         attempts_raw = request.form.get("attempts", "5")
         rate_limit_raw = request.form.get("rate_limit", "1.0")
         dry_run = request.form.get("dry_run") == "on"
+        xss_payloads = request.form.get("xss_safe_payloads", "").strip()
+        xss_payload_list = []
+        if xss_payloads:
+            xss_payload_list = [
+                payload.strip() for payload in xss_payloads.split(",") if payload.strip()
+            ]
 
         try:
             attempts = int(attempts_raw)
@@ -1092,7 +1098,8 @@ def experiment_builder():
             "status": "Queued",
             #"request": "Pending Approval",
             "group_id": ObjectId(group_id),
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
+            "xss_payloads": xss_payload_list if module_id == "xss" else [],
         }
 
         #Noah: added some group collection for document for attacks/experiments
