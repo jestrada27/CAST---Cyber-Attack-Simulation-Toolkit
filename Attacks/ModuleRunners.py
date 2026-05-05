@@ -368,7 +368,8 @@ def run_xss_experiment(experiment, collection_targets):
         "rate_limit": experiment.get("rate_limit", 1),
         "dry_run": experiment.get("dry_run", True),
         "xss_type": "reflected",
-        "crawl": True
+        "crawl": True,
+        "payloads": experiment.get("xss_payloads", [])
     }
 
     #does the attack and then returns everything
