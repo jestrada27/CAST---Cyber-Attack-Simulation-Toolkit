@@ -85,7 +85,7 @@ def xss_attack(target, xss_config):
             params = parameter_extract(url_index)
             if not params: 
                 #params = [target.get("param", "q")]
-                params = [target.get("params", "q")]
+                params = [target.get("param", "q")]
             
             #goes through parameters and tries to do xss
             for param in params:
