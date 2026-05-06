@@ -2,3 +2,5 @@
 .idea/
 __pycache__/
 *.py[cod].env
+.castrange.db
+.castrange.token
