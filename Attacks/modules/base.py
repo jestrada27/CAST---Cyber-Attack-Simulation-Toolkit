@@ -1,6 +1,6 @@
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 
 import requests
@@ -145,7 +145,7 @@ class BaseRunner:
             module_id=self.module_id,
             module_label=self.module_label,
             mode="dry_run" if self.dry_run else "simulated_active",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(UTC),
             target_url=self.target_url,
         )
 

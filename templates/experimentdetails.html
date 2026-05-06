@@ -166,6 +166,9 @@
         <p><b>Notes:</b> {{ exp.notes if exp.notes else "None" }}</p>
         <!-- Noah: added group name to detail page for operator control-->
         <p><b>Group:</b> {{ group_name }}</p>
+        {% if request_doc %}
+          <p><b>Request Status:</b> {{ request_doc.status }}</p>
+        {% endif %}
 
         {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
           <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">

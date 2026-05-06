@@ -1,7 +1,7 @@
 # cast/modules/bruteforce/mock_auth_server.py
 from flask import Flask, request, jsonify
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import threading
 
 app = Flask(__name__)
@@ -28,7 +28,7 @@ VALID_USERS = {
 @app.route('/login', methods=['POST'])
 def login():
     with LOCK:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         data = request.get_json(silent=True) or {}
         username = data.get("username", "")
         password = data.get("password", "")

@@ -2,7 +2,7 @@ from flask import Blueprint, request, session, jsonify, Flask, redirect, render_
 #from reporting import getReportsForUser, serialize
 from .reports_db import (getReportsForUser, get_filtered_logs, serialize_attack_log, get_all_logs, get_attack_stats, delete_attack as db_delete, 
 clear_all_attacks as db_clear, update_report_url, serialize,generate_random_attack, clear_all_periodic as periodic_clear, delete_periodic as db_delete_periodic)
-from datetime import datetime
+from datetime import datetime, UTC
 from bson import ObjectId
 from .reports_db import pdf_attack_report  
 
@@ -183,7 +183,7 @@ def periodic_data():
       return jsonify({"success": False, 
       "message": "No attacks have been conducted for periodic report generation."}), 400
    start_period = previous_report["generated_at"] if previous_report else None
-   generated_at = datetime.utcnow()
+   generated_at = datetime.now(UTC)
    end_period = generated_at
    
 

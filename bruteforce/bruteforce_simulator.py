@@ -67,10 +67,9 @@ def load_credentials_from_file(path: str):
 
 
 def attempt_login(session: requests.Session, url: str, username: str, password: str, run_id: str, dry_run: bool = False):
-    remote_ip = "127.0.0.1"  # simulator-origin placeholder
+    remote_ip = "127.0.0.1"
 
     if dry_run:
-        # Log a simulated attempt without sending a request
         insert_event(
             run_id, username, password, remote_ip,
             status="dry_run", http_code=0,
@@ -80,34 +79,48 @@ def attempt_login(session: requests.Session, url: str, username: str, password: 
         return {"username": username, "status": "dry_run"}
 
     try:
-        resp = session.post(url, json={"username": username, "password": password}, timeout=5)
-        # Try to parse JSON response
+        resp = session.post(
+            url,
+            data={"username": username, "password": password},
+            timeout=5,
+            allow_redirects=False
+        )
+
         try:
             j = resp.json()
             status = j.get("status", "unknown")
             msg = j.get("message", "") or j.get("error", "")
         except Exception:
-            status = "http"
-            msg = (resp.text or "")[:200]
+            text = resp.text or ""
+            lower = text.lower()
+            if resp.status_code in (301, 302, 303) or "success" in lower or "dashboard" in lower or "welcome" in lower:
+                status = "ok"
+            elif resp.status_code in (400, 401, 403) or "invalid" in lower or "failed" in lower or "wrong" in lower:
+                status = "failed"
+            elif resp.status_code == 200:
+                status = "failed"
+            else:
+                status = "http"
+            msg = text[:200]
 
-        # Log the result
         insert_event(
             run_id, username, password, remote_ip,
-            status=status, http_code=resp.status_code,
+            status=status,
+            http_code=resp.status_code,
             message=msg,
             target_url=url
         )
         return {"username": username, "status": status, "code": resp.status_code}
 
     except Exception as e:
-        # Log unexpected exceptions (timeouts, connection errors, etc.)
         insert_event(
             run_id, username, password, remote_ip,
-            status="error", http_code=0,
+            status="failed",
+            http_code=0,
             message=str(e),
             target_url=url
         )
-        return {"username": username, "status": "error", "error": str(e)}
+        return {"username": username, "status": "failed", "error": str(e)}
 
 
 def run_simulation(

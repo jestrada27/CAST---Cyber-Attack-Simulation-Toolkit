@@ -3,7 +3,7 @@ import time
 import random
 import sqlite3
 import threading
-from datetime import datetime
+from datetime import datetime, UTC
 from collections import defaultdict
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -352,7 +352,7 @@ def health():
         "connected": True,
         "status": "running",
         "message": "CAST target server is running.",
-        "time": datetime.utcnow().isoformat()
+        "time": datetime.now(UTC).isoformat()
     })
 
 
@@ -450,7 +450,7 @@ def xss_stored():
     with _db_lock:
         db.execute(
             "INSERT INTO comments (content, stored_at) VALUES (?, ?)",
-            (content, datetime.utcnow().isoformat())
+            (content, datetime.now(UTC).isoformat())
         )
         db.commit()
 
@@ -586,7 +586,7 @@ def dns_tunneling():
 
     entry = {
         "hostname": hostname,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "suspicious": analysis["suspicious"],
         "bytes": query_size
     }

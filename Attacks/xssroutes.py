@@ -1,5 +1,5 @@
 from flask import Blueprint, request, session, jsonify
-from datetime import datetime
+from datetime import datetime, UTC
 from bson import ObjectId
 from database import database_name
 from .xss_logic import xss_attack
@@ -36,7 +36,7 @@ def xss_start_attack():
         "attack_type": "XSS",
         "target_id": ObjectId(target_id),
         "payload": xss_payload,
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(UTC),
         "status": status,
         "vulnerability": attack_result["vulnerability"],
         "attack_xss_log": attack_result["xss_log"]

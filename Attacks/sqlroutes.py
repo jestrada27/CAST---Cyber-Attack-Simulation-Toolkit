@@ -1,7 +1,7 @@
 # sqliRoutes.py
 
 from flask import Blueprint, request, session, jsonify
-from datetime import datetime
+from datetime import datetime, UTC
 from bson import ObjectId
 from database import database_name
 from .SQLInjectionAttack import sqli_attack
@@ -57,7 +57,7 @@ def sqli_start_attack():
         "attack_type": "SQL Injection",
         "target_id": ObjectId(target_id),
         "payload": sqli_payload,
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(UTC),
         "status": status,
         "vulnerability": attack_result["vulnerability"],
         "attack_sqli_log": attack_result["sqli_log"]

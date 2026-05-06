@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -46,7 +46,7 @@ def insert_event(run_id, status, results):
     col.insert_one({
         "run_id": run_id,
         "attack_type": "SQL injection",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "status": status,
         "results": results #List[str]
     })

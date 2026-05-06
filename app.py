@@ -1,7 +1,7 @@
 from flask import Flask, request, session, redirect, render_template, flash, url_for, jsonify
 from flask_mail import Mail, Message
 from bson.objectid import ObjectId
-from datetime import datetime
+from datetime import datetime, UTC
 import os
 import bcrypt
 from dotenv import load_dotenv
@@ -450,8 +450,8 @@ def safe_float(value, default=0.0):
 
 def normalize_experiment_results(module_id, raw_results, dry_run=False):
     """Normalize module output so templates and history can render consistently."""
-    started_at = raw_results.get("started_at", datetime.utcnow())
-    completed_at = raw_results.get("completed_at", datetime.utcnow())
+    started_at = raw_results.get("started_at", datetime.now(UTC))
+    completed_at = raw_results.get("completed_at", datetime.now(UTC))
 
     if module_id == "dns":
         samples = raw_results.get("samples", [])
@@ -837,7 +837,7 @@ def run_experiment_now(experiment, target, user):
         results = {
             "mode": "blocked_before_start",
             "started_at": safety_engine.started_at,
-            "completed_at": datetime.utcnow(),
+            "completed_at": datetime.now(UTC),
             "sample_count": 0,
             "avg_throughput_kbps": 0.0,
             "avg_detectability_score": 0.0,
@@ -943,7 +943,7 @@ def run_experiment_now(experiment, target, user):
         results = attach_information_grab(module_id, target, {
             "mode": "failed",
             "started_at": safety_engine.started_at,
-            "completed_at": datetime.utcnow(),
+            "completed_at": datetime.now(UTC),
             "sample_count": 0,
             "avg_throughput_kbps": 0.0,
             "avg_detectability_score": 0.0,
@@ -964,7 +964,7 @@ def run_experiment_now(experiment, target, user):
     results = attach_information_grab(module_id, target, {
         "mode": "unsupported_module",
         "started_at": safety_engine.started_at,
-        "completed_at": datetime.utcnow(),
+        "completed_at": datetime.now(UTC),
         "sample_count": 0,
         "avg_throughput_kbps": 0.0,
         "avg_detectability_score": 0.0,
@@ -1249,7 +1249,7 @@ def experiment_builder():
             "status": "Queued",
             #"request": "Pending Approval",
             "group_id": ObjectId(group_id),
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(UTC),
             "xss_payloads": xss_payload_list if module_id == "xss" else [],
         }
 
@@ -1286,7 +1286,7 @@ def experiment_builder():
         #         "submitted_by":  ObjectId(session["user_id"]),
         #         "username": session["username"],
         #         "status": "pending",
-        #         "created_at": datetime.utcnow()
+        #         "created_at": datetime.now(UTC)
         # })
         else:
         #Noah - inserts info for attack requests 
@@ -1297,7 +1297,7 @@ def experiment_builder():
                 "submitted_by": ObjectId(session["user_id"]),
                 "username": session["username"],
                 "status": request_status,
-                "created_at": datetime.utcnow()
+                "created_at": datetime.now(UTC)
             })
         # admin check for if admin
         if is_admin:
@@ -1537,7 +1537,7 @@ def targets():
         #     # "param": param,
         #     # "method": method,
         #     "consent_status": "pending",
-        #     "created_at": datetime.utcnow()
+        #     "created_at": datetime.now(UTC)
         # })
         collection_targets.insert_one({
             "owner": username,
@@ -1549,7 +1549,7 @@ def targets():
             "allowed_ports": allowed_ports,
             "allowed_accounts": allowed_accounts,
             "approved_users": approved_users,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.now(UTC)
         })
 
         flash("target added!", "success")
@@ -1674,7 +1674,7 @@ def start_experiment(experiment_id):
 
     collection_experiments.update_one(
         {"_id": experiment_object_id, "owner": username},
-        {"$set": {"status": "Running", "started_at": datetime.utcnow()}},
+        {"$set": {"status": "Running", "started_at": datetime.now(UTC)}},
     )
 
     latest_exp = collection_experiments.find_one({"_id": experiment_object_id, "owner": username})
@@ -1695,7 +1695,7 @@ def start_experiment(experiment_id):
         "user_id": ObjectId(session["user_id"]),
         "experiment_id": experiment_object_id,
         "attack_type": execution["results"].get("attack_type") or exp.get("module_id"),
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(UTC),
         "status": execution["status"],
         "report_available": True,
         "report_url": "https://example.com/whitepaper.pdf",
@@ -1753,7 +1753,7 @@ def trigger_experiment_kill_switch(experiment_id):
                 "status": "Termination Requested",
                 "safety.kill_switch.engaged": True,
                 "safety.kill_switch.reason": reason,
-                "safety.kill_switch.engaged_at": datetime.utcnow(),
+                "safety.kill_switch.engaged_at": datetime.now(UTC),
             }
         },
     )

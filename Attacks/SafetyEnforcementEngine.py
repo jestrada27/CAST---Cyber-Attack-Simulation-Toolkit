@@ -1,6 +1,6 @@
 from collections import Counter, defaultdict, deque
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from threading import Lock
 from urllib.parse import urlparse
 
@@ -26,7 +26,7 @@ SAFE_XSS_MARKERS = (
 
 
 def utc_now():
-    return datetime.utcnow()
+    return datetime.now(UTC)
 
 
 def split_csv_lines(value):

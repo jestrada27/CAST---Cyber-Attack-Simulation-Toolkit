@@ -1,5 +1,5 @@
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, UTC
 from database import database_name
 from flask import jsonify
 from user_management.user_manage import admin_check, find_group
@@ -79,7 +79,7 @@ def approve_attack(user_id, attack_id, group_id):
             {"$set": {
                 "status": "approved",
                 "approved_by": ObjectId(user_id),
-                "approved_at": datetime.utcnow()
+                "approved_at": datetime.now(UTC)
             }}
     )
     
@@ -109,7 +109,7 @@ def deny_attack(user_id, attack_id, group_id):
             {"$set": {
                 "status": "denied",
                 "denied_by": ObjectId(user_id),
-                "denied_at": datetime.utcnow()
+                "denied_at": datetime.now(UTC)
             }}
     )
 
@@ -128,7 +128,7 @@ def user_cancel_attack(user_id, attack_id):
         return False, "Attack has gone through already"
     #updates attack request to cancel it
     collection_requests.update_one({"_id": ObjectId(attack_id)},
-    {"$set": {"status": "cancelled", "cancelled_at": datetime.utcnow()}})
+    {"$set": {"status": "cancelled", "cancelled_at": datetime.now(UTC)}})
 
     return True, "Attack cancelled"
 

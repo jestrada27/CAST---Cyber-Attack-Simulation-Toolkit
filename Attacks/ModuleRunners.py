@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 import math
 import random
 import time
@@ -122,7 +122,7 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
     Brute-force experiment with safety-engine gating per attempt.
     Returns structured telemetry compatible with the experiment details page.
     """
-    started_at = datetime.utcnow()
+    started_at = datetime.now(UTC)
     attempts_per_user = int(_bounded(int(attempts), 1, 10))
     base_rate_limit = _bounded(float(rate_limit), 0.1, 10.0)
     concurrency = int(_bounded(math.ceil(base_rate_limit), 1, 10))
@@ -204,7 +204,7 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
         if status_counts.get("terminated"):
             break
 
-    completed_at = datetime.utcnow()
+    completed_at = datetime.now(UTC)
     simulated_success_count, simulated_success_rate = _apply_sample_success_target(
         sample_results,
         effectiveness_target_percent,
@@ -266,7 +266,7 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
     }
 
 def run_sqli_experiment(DEFAULT_TARGET, dry_run):
-    started_at = datetime.utcnow()
+    started_at = datetime.now(UTC)
     run_id = str(uuid.uuid4())
 
     # Lazy import keeps app startup resilient if optional module deps are missing.
@@ -285,7 +285,7 @@ def run_sqli_experiment(DEFAULT_TARGET, dry_run):
         status_name = "dry_run" if dry_run else "simulated"
         telemetry_mode = f"fallback_local ({error})"
 
-    completed_at = datetime.utcnow()
+    completed_at = datetime.now(UTC)
 
 
     return {
@@ -304,7 +304,7 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
         result = runner.run()
         return result.to_dict(safety_engine=safety_engine)
 
-    started_at = datetime.utcnow()
+    started_at = datetime.now(UTC)
     sample_count = int(_bounded(int(attempts), 1, 100))
     base_rate = _bounded(float(rate_limit), 0.1, 10.0)
     stealth_bias = 1.0 if dry_run else 1.15
@@ -422,7 +422,7 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
     else:
         guidance = f"{cfg['label']} profile is low-noise in this simulation."
 
-    completed_at = datetime.utcnow()
+    completed_at = datetime.now(UTC)
     return {
         "mode": "dry_run" if dry_run else "simulated_active",
         "started_at": started_at,
@@ -449,7 +449,7 @@ def run_xss_experiment(experiment, collection_targets, effectiveness_target_perc
     #from xss_attack.xss_logic import import xss_attack
     from Attacks.XSSInjectAttack import xss_attack
 
-    started_at = datetime.utcnow()
+    started_at = datetime.now(UTC)
 
     target_doc = collection_targets.find_one({"_id": experiment.get("target_id")})
     if not target_doc:
@@ -474,7 +474,7 @@ def run_xss_experiment(experiment, collection_targets, effectiveness_target_perc
     #does the attack and then returns everything
     result = xss_attack(target, xss_config)
 
-    completed_at = datetime.utcnow()
+    completed_at = datetime.now(UTC)
     dry_run = bool(xss_config["dry_run"])
     sample_count = int(_bounded(int(xss_config["attempts"]), 1, 100))
     effectiveness_target = _effectiveness_target(effectiveness_target_percent)

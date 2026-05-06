@@ -1,6 +1,6 @@
 #simple test file for start of xss logic
 
-from xss_logic import xss_attack
+from xss_attack.xss_logic import xss_attack
 
 #xss target test
 # target = {

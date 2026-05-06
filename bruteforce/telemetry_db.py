@@ -1,6 +1,6 @@
 # bruteforce/telemetry_db.py
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -46,7 +46,7 @@ def insert_event(run_id, username, password, remote_ip, status, http_code, messa
     col = get_collection()
     col.insert_one({
         "run_id": run_id,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "username": username,
         "password": password,
         "remote_ip": remote_ip,

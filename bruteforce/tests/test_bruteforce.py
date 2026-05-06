@@ -1,11 +1,11 @@
 # cast/modules/bruteforce/tests/test_bruteforce.py
 import subprocess, time, os, signal, uuid
-from bruteforce_simulator import run_simulation, load_credentials_from_file
-from telemetry_db import init_db
+from bruteforce.bruteforce_simulator import run_simulation, load_credentials_from_file
+from bruteforce.telemetry_db import init_db
 
 def start_mock_server():
-    p = subprocess.Popen(["python","mock_auth_server.py"], cwd=os.path.dirname(__file__) or ".", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    time.sleep(1.0)
+    p = subprocess.Popen(["python", "mock_auth_server.py"], cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    time.sleep(2)
     return p
 
 def stop_mock_server(p):

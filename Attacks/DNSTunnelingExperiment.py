@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 import random
 import time
 from urllib.parse import urlparse
@@ -58,7 +58,7 @@ def run_dns_tunneling_experiment(attempts, rate_limit, dry_run=True, target=None
     Safe lab simulation for DNS tunneling throughput vs detectability.
     No network traffic is generated.
     """
-    started_at = datetime.utcnow()
+    started_at = datetime.now(UTC)
 
     sample_count = int(_bounded(int(attempts), 1, 100))
     bounded_rate = _bounded(float(rate_limit), 0.1, 20.0)
@@ -166,7 +166,7 @@ def run_dns_tunneling_experiment(attempts, rate_limit, dry_run=True, target=None
     else:
         guidance = "Low detection profile in this simulation. Current settings appear comparatively stealthier."
 
-    completed_at = datetime.utcnow()
+    completed_at = datetime.now(UTC)
 
     return {
         "mode": "dry_run" if dry_run else "simulated_active",

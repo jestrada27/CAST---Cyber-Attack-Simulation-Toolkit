@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 import random
 
 
@@ -54,7 +54,7 @@ def run_dns_tunneling_experiment(attempts, rate_limit, dry_run=True):
     else:
         guidance = "Low detection profile in this simulation."
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     return {
         "mode": "dry_run" if dry_run else "simulated_active",
         "started_at": now,
