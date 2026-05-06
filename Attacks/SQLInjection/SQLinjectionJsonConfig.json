@@ -1,0 +1,10 @@
+{
+    "data": [
+        {
+            "url": "http://localhost:3000/rest/user/login",
+            "data_fields": ["email" , "password"],
+            "method": "post",
+            "exp_res": 401
+        }
+    ]
+}

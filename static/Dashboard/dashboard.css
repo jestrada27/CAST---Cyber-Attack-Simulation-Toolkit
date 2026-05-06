@@ -721,6 +721,10 @@ button{
   background:rgba(255,255,255,.025);
 }
 
+.quick-meta{
+  min-width:0;
+}
+
 .quick-title{
   font-weight:800;
   white-space:nowrap;
@@ -881,6 +885,15 @@ tr:hover td{
   background:rgba(17,26,46,.96);
 }
 
+.user-notch:active{
+  transform:translateY(1px);
+}
+
+.user-notch:focus-visible{
+  outline:2px solid rgba(110,168,254,.6);
+  outline-offset:3px;
+}
+
 .user-avatar{
   width:34px;
   height:34px;
@@ -942,6 +955,25 @@ tr:hover td{
   padding:18px;
 }
 
+.modal-groups,
+.modal-members{
+  background:black;
+}
+
+.modal-create-group{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:999;
+}
+
+.modal-create-group.show{
+  display:flex;
+}
+
 .modal-content input{
   width:100%;
   padding:12px 14px;
@@ -975,6 +1007,63 @@ tr:hover td{
   flex-direction:column;
   gap:10px;
   width:200px;
+}
+
+.container{
+  display:flex;
+  gap:10px;
+}
+
+.config-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px;
+  margin-bottom:10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(255,255,255,.04);
+}
+
+.config-row .input{
+  padding:6px 8px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+}
+
+.config-row .small{
+  width:80px;
+}
+
+.config-row .checkbox{
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+
+.config-row .remove-btn,
+.config-row .accept-btn{
+  margin-left:auto;
+  color:white;
+  border:none;
+  border-radius:6px;
+  padding:6px 10px;
+  cursor:pointer;
+}
+
+.config-row .remove-btn{
+  background:#ff4d4d;
+}
+
+.config-row .remove-btn:hover{
+  background:#cc0000;
+}
+
+.config-row .accept-btn,
+.config-row .accept-btn:hover{
+  background:#0df753;
 }
 
 /* Responsive */
