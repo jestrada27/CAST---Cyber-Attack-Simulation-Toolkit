@@ -1,0 +1,10 @@
+bcrypt
+beautifulsoup4
+dnspython
+flask
+flask-cors
+flask-mail
+pymongo
+python-dotenv
+requests
+pytest
