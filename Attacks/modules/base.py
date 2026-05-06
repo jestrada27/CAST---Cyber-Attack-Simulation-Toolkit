@@ -17,6 +17,7 @@ class Finding:
     evidence: str = ""
     detection_signal: str = ""
     category: str = ""
+    exposed_data: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -36,6 +37,7 @@ class AttackResult:
     detectability_scores: list = field(default_factory=list)
     guidance: str = ""
     target_url: Optional[str] = None
+    exposed_summary: dict = field(default_factory=dict)
 
     @property
     def success_rate_percent(self):
@@ -96,6 +98,7 @@ class AttackResult:
             "findings": [asdict(f) for f in self.findings],
             "target_url": self.target_url,
             "target_metrics": self.target_metrics,
+            "exposed_summary": self.exposed_summary,
         }
 
         if safety_engine is not None:

@@ -34,12 +34,13 @@
 <body>
   <div class="layout" id="layout">
     <aside class="left-sidebar">
+      <!-- navigation section -->
       <section class="section">
         <h3>Home</h3>
         <div class="button-group">
           <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <!-- link to create new experiment -->
           <a class="item" href="{{ url_for('experiment_builder') }}">New Experiment</a>
-          <a class="item" href="{{ url_for('experiment_history') }}">Experiment History</a>
           <a class="item" href="{{ url_for('targets') }}">Manage Targets</a>
           <a class="item" href="{{ url_for('profile') }}">Profile</a>
         </div>
@@ -51,8 +52,7 @@
           <div class="button-group">
             {% if recent_experiments %}
               {% for recent in recent_experiments %}
-                <a class="item {% if recent.id == (exp._id|string) %}is-selected{% endif %}"
-                   href="{{ url_for('experimentdetails', experiment_id=recent._id if recent._id is defined else recent.id) }}">
+                <a class="item {% if recent.id == (exp._id|string) %}is-selected{% endif %}" href="{{ url_for('experimentdetails', experiment_id=recent.id) }}">
                   {{ recent.module_label }} | {{ recent.status }} | {{ recent.created_at_label }}
                 </a>
               {% endfor %}
@@ -63,9 +63,11 @@
         </div>
       </section>
 
-      <a class="user-notch" href="{{ url_for('profile') }}" aria-label="open profile">
+      <!-- user profile notch at bottom-left -->
+      <a class="user-notch" href="{{ url_for('profile') }}" aria-label="Open profile">
          <div class="user-avatar">{{ username[0]|upper }}</div>
         <div class="user-meta">
+          <!-- username pulled from session -->
           <div class="user-name">{{ username }}</div>
           <!-- <div class="user-role">student</div> -->
         </div>
@@ -73,52 +75,14 @@
     </aside>
 
     <main class="main">
+      <!-- top bar with experiment title + status -->
       <header class="topbar">
         <div>
           <h1>Experiment Detail</h1>
-          <p class="sub">
-            {{ exp.module_label if exp.module_label is defined else exp.module_id }} · {{ target_name }}
-          </p>
+          <p class="sub">ID: {{ exp._id }}</p>
         </div>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <div class="pill">{{ exp.status }}</div>
-          <a class="btn-secondary" href="{{ url_for('experiment_history') }}">History</a>
-          <a class="btn-primary" href="{{ url_for('experiment_builder',
-                                target_id=(exp.target_id|string),
-                                module_id=exp.module_id,
-                                attempts=exp.attempts,
-                                rate_limit=exp.rate_limit,
-                                dry_run='true' if exp.dry_run else 'false') }}">
-            Reuse Config
-          </a>
-        </div>
+        <div class="pill">{{ exp.status }}</div>
       </header>
-
-      <section class="grid cards">
-        <div class="card">
-          <div class="card-label">Target</div>
-          <div class="card-value" style="font-size:22px;">{{ target_name }}</div>
-          <div class="card-hint">Assigned test target</div>
-        </div>
-
-        <div class="card">
-          <div class="card-label">Module</div>
-          <div class="card-value" style="font-size:22px;">{{ exp.module_label if exp.module_label is defined else exp.module_id }}</div>
-          <div class="card-hint">Simulation type</div>
-        </div>
-
-        <div class="card">
-          <div class="card-label">Attempts</div>
-          <div class="card-value">{{ exp.attempts }}</div>
-          <div class="card-hint">Configured run count</div>
-        </div>
-
-        <div class="card">
-          <div class="card-label">Rate Limit</div>
-          <div class="card-value">{{ exp.rate_limit }}</div>
-          <div class="card-hint">Execution pacing</div>
-        </div>
-      </section>
 
       <div class="panel" style="margin-top:16px;">
         <h2>Experiment Overview</h2>
@@ -170,6 +134,8 @@
             </p>
           </div>
         </div>
+      </div>
+
       <!-- Noah - message flash for error with experiment -->
        {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
@@ -184,164 +150,208 @@
         {% endwith %}
       <div class="panel" style="margin-top:16px;">
         <!-- display experiment metadata -->
-        <p><b>target:</b> {{ target_name }}</p>
-        <p><b>module:</b> {{ exp.module_id }}</p>
-        <p><b>attempts:</b> {{ exp.attempts }}</p>
-        <p><b>rate_limit:</b> {{ exp.rate_limit }}</p>
-        <p><b>dry_run:</b> {{ "yes" if exp.dry_run else "no" }}</p>
-        <p><b>description:</b> {{ exp.description if exp.description else "none" }}</p>
-        <p><b>notes:</b> {{ exp.notes if exp.notes else "none" }}</p>
+        <p><b>Target:</b> {{ target_name }}</p>
+        <p><b>Target Endpoint:</b> {{ target.ip_or_url if target.ip_or_url else "Unknown" }}</p>
+        <p><b>Target Environment:</b> {{ target.environment if target.environment else "Lab" }}</p>
+        <p><b>Target Consent:</b> {{ target.consent_status if target.consent_status else "Pending" }}</p>
+        <p><b>Allowed Services:</b> {{ (target.allowed_services or [])|join(", ") if target.allowed_services else "None" }}</p>
+        <p><b>Allowed Ports:</b> {{ (target.allowed_ports or [])|join(", ") if target.allowed_ports else "None" }}</p>
+        <p><b>Allowed Accounts:</b> {{ (target.allowed_accounts or [])|join(", ") if target.allowed_accounts else "None" }}</p>
+        <p><b>Approved Users:</b> {{ (target.approved_users or [])|join(", ") if target.approved_users else "None" }}</p>
+        <p><b>Module:</b> {{ exp.module_id }}</p>
+        <p><b>Attempts:</b> {{ exp.attempts }}</p>
+        <p><b>Rate Limit:</b> {{ exp.rate_limit }}</p>
+        <p><b>Dry Run:</b> {{ "Yes" if exp.dry_run else "No" }}</p>
+        <p><b>Description:</b> {{ exp.description if exp.description else "None" }}</p>
+        <p><b>Notes:</b> {{ exp.notes if exp.notes else "None" }}</p>
         <!-- Noah: added group name to detail page for operator control-->
-        <p><b>group: </b> {{ group_name}}</p>
+        <p><b>Group:</b> {{ group_name }}</p>
 
         {% if exp.module_id in ["dns", "brute force", "sqli", "xss", "replay"] %}
-          <div style="margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <form method="post" action="{{ url_for('start_experiment', experiment_id=(exp._id|string)) }}">
-              <button class="btn-primary" type="submit">
-                <i class="fa-solid fa-play"></i>
-                Start / Rerun Module
-              </button>
+          <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
+            <form method="post" class="attack-run-form" action="{{ url_for('start_experiment', experiment_id=(exp._id|string)) }}">
+              <button class="btn-primary" type="submit">Start / Rerun Module</button>
             </form>
             <form method="post" action="{{ url_for('trigger_experiment_kill_switch', experiment_id=(exp._id|string)) }}">
-              <button class="btn-secondary" type="submit">engage kill switch</button>
+              <button class="btn-secondary" type="submit">Engage Kill Switch</button>
             </form>
-            <a class="btn-secondary" href="{{ url_for('experiment_safety_report', experiment_id=(exp._id|string)) }}">view safety report json</a>
+            <a class="btn-secondary" href="{{ url_for('experiment_safety_report', experiment_id=(exp._id|string)) }}">View Safety Report JSON</a>
           </div>
         {% endif %}
-      </div>
 
-      {% if exp.results %}
-        <div class="panel" style="margin-top:16px;">
-          <h2>Results Summary</h2>
-
-          <section class="grid cards" style="margin-top:0;">
-            <div class="card">
-              <div class="card-label">Mode</div>
-              <div class="card-value" style="font-size:22px;">{{ exp.results.mode }}</div>
-              <div class="card-hint">Execution mode</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">Average Throughput</div>
-              <div class="card-value">{{ exp.results.avg_throughput_kbps }}</div>
-              <div class="card-hint">kbps</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">Average Detectability</div>
-              <div class="card-value">{{ exp.results.avg_detectability_score }}</div>
-              <div class="card-hint">Detection score</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">Risk Level</div>
-              <div class="card-value" style="font-size:22px;">
-                {{ exp.results.risk_band if exp.results.risk_band is defined else exp.risk_band if exp.risk_band is defined else "n/a" }}
-              </div>
-              <div class="card-hint">Overall run profile</div>
-            </div>
-          </section>
-
-          <div class="grid" style="grid-template-columns:repeat(2, minmax(0,1fr)); margin-top:16px;">
-            <div class="panel" style="padding:16px;">
-              <h2 style="font-size:15px; margin-bottom:10px;">Guidance</h2>
-              <p style="margin:0; color:var(--muted);">{{ exp.results.guidance }}</p>
-            </div>
-
-            <div class="panel" style="padding:16px;">
-              <h2 style="font-size:15px; margin-bottom:10px;">Run Metadata</h2>
-              <p style="margin:0 0 6px 0;"><b>Samples:</b> {{ exp.results.sample_count }}</p>
-              {% if exp.results.throughput_detectability_efficiency is defined %}
-                <p style="margin:0 0 6px 0;"><b>Efficiency:</b> {{ exp.results.throughput_detectability_efficiency }}</p>
-              {% endif %}
-              {% if exp.results.success_rate_percent is defined %}
-                <p style="margin:0 0 6px 0;"><b>Success Rate:</b> {{ exp.results.success_rate_percent }}%</p>
-              {% endif %}
-              {% if exp.results.status_counts is defined %}
-                <p style="margin:0;"><b>Status Counts:</b> {{ exp.results.status_counts }}</p>
-              {% endif %}
-            </div>
+        {% if exp.results %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Results</h2>
+            <p><b>Mode:</b> {{ exp.results.mode }}</p>
+            <p><b>Average Throughput:</b> {{ exp.results.avg_throughput_kbps }} kbps</p>
+            <p><b>Average Detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
+            <p><b>Guidance:</b> {{ exp.results.guidance }}</p>
+            <p><b>Samples:</b> {{ exp.results.sample_count }}</p>
+            {% if exp.results.success_rate_percent is defined %}
+              <p><b>Success Rate:</b> {{ exp.results.success_rate_percent }}%</p>
+            {% endif %}
+            {% if exp.results.simulation_effectiveness_target_percent is defined %}
+              <p><b>Simulation Effectiveness Target:</b> {{ exp.results.simulation_effectiveness_target_percent }}%</p>
+            {% endif %}
+            {% if exp.results.status_counts is defined %}
+              <p><b>Status Counts:</b> {{ exp.results.status_counts }}</p>
+            {% endif %}
+            {% if exp.results.detection_rate_observed_percent is defined %}
+              <p><b>Observed Detection Rate:</b> {{ exp.results.detection_rate_observed_percent }}%</p>
+            {% endif %}
+            {% if exp.results.avg_latency_ms is defined %}
+              <p><b>Average Latency:</b> {{ exp.results.avg_latency_ms }} ms (p95 {{ exp.results.p95_latency_ms }} ms)</p>
+            {% endif %}
           </div>
+        {% endif %}
 
-          {% if exp.results.samples is defined and exp.results.samples %}
-            <div style="margin-top:20px;">
-              <h2 style="margin:0 0 12px 0;">Sample Metrics</h2>
-              <div style="overflow-x:auto;">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Trial</th>
-                      {% if exp.module_id == "dns" %}
-                        <th>QPS</th>
-                        <th>Payload Bytes</th>
-                        <th>Packet Loss %</th>
-                        <th>Entropy</th>
-                      {% endif %}
-                      {% if exp.module_id == "brute force" %}
-                        <th>Username</th>
-                        <th>Status</th>
-                      {% endif %}
-                      <th>Throughput kbps</th>
-                      <th>Detectability</th>
-                      <th>Risk</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for sample in exp.results.samples %}
+        {% if exp.results and exp.results.information_grab %}
+          {% set ig = exp.results.information_grab %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Information gathered</h2>
+            <p><b>Target:</b> {{ ig.target_name }} | {{ ig.target_endpoint }}</p>
+            <p><b>Environment:</b> {{ ig.target_environment }} | <b>Consent:</b> {{ ig.consent_status }}</p>
+            <p><b>Telemetry:</b> {{ ig.telemetry_mode }}</p>
+            <p><b>Safety Summary:</b> {{ ig.safety_summary }}</p>
+            <p><b>Findings:</b> {{ ig.finding_count }} | <b>Samples:</b> {{ ig.sample_count }}</p>
+            {% if ig.risk_notes %}
+              <p><b>Notable Observations:</b> {{ ig.risk_notes|join(", ") }}</p>
+            {% endif %}
+            {% if ig.observed_endpoints %}
+              <p><b>Observed Endpoints:</b> {{ ig.observed_endpoints|join(" | ") }}</p>
+            {% endif %}
+            {% if ig.sample_payloads %}
+              <p><b>Sample Payloads:</b> {{ ig.sample_payloads|join(" | ") }}</p>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if exp.results and exp.results.exposed_summary %}
+          {% set es = exp.results.exposed_summary %}
+          {% if es.records_extracted or es.unique_password_hashes or es.unique_emails or es.auth_bypasses or es.sql_errors_leaked %}
+            <div style="margin-top:16px;">
+              <h2 style="margin:0 0 10px 0; font-size:16px;">Exposed information</h2>
+              <p><b>Records Extracted:</b> {{ es.records_extracted }}</p>
+              <p><b>Unique Password Hashes:</b> {{ es.unique_password_hashes }}</p>
+              <p><b>Unique Emails:</b> {{ es.unique_emails }}</p>
+              <p><b>Authentication Bypasses:</b> {{ es.auth_bypasses }}</p>
+              <p><b>Verbose SQL Errors Leaked:</b> {{ es.sql_errors_leaked }}</p>
+
+              {% if es.sample_records %}
+                <h3 style="margin:14px 0 6px 0; font-size:14px;">Sample records dumped</h3>
+                <div style="overflow-x:auto;">
+                  <table>
+                    <thead>
                       <tr>
-                        <td>{{ sample.trial }}</td>
-
-                        {% if exp.module_id == "dns" %}
-                          <td>{{ sample.queries_per_second }}</td>
-                          <td>{{ sample.payload_bytes }}</td>
-                          <td>{{ sample.packet_loss_percent }}</td>
-                          <td>{{ sample.entropy_score if sample.entropy_score is defined else "n/a" }}</td>
-                        {% endif %}
-
-                        {% if exp.module_id == "brute force" %}
-                          <td>{{ sample.username }}</td>
-                          <td>{{ sample.status }}</td>
-                        {% endif %}
-
-                        <td>{{ sample.throughput_kbps }}</td>
-                        <td>{{ sample.detectability_score }}</td>
-                        <td>{{ sample.risk_band if sample.risk_band is defined else "n/a" }}</td>
+                        {% for key in es.sample_records[0].keys() %}
+                          <th>{{ key }}</th>
+                        {% endfor %}
                       </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {% for record in es.sample_records %}
+                        <tr>
+                          {% for value in record.values() %}
+                            <td style="font-family:monospace; font-size:12px;">{{ value }}</td>
+                          {% endfor %}
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% endif %}
+
+              {% if es.sample_hashes %}
+                <h3 style="margin:14px 0 6px 0; font-size:14px;">Password hashes observed</h3>
+                {% for h in es.sample_hashes %}
+                  <div class="item" style="font-family:monospace; font-size:12px;">{{ h }}</div>
+                {% endfor %}
+              {% endif %}
+
+              {% if es.sample_emails %}
+                <h3 style="margin:14px 0 6px 0; font-size:14px;">Emails observed</h3>
+                {% for e in es.sample_emails %}
+                  <div class="item" style="font-family:monospace; font-size:12px;">{{ e }}</div>
+                {% endfor %}
+              {% endif %}
+
+              {% if es.sample_errors %}
+                <h3 style="margin:14px 0 6px 0; font-size:14px;">SQL error excerpts</h3>
+                {% for err in es.sample_errors %}
+                  <div class="item" style="font-family:monospace; font-size:12px; white-space:pre-wrap;">{{ err }}</div>
+                {% endfor %}
+              {% endif %}
             </div>
           {% endif %}
+        {% endif %}
+
+        {% if exp.results and exp.results.findings %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Per-attempt findings</h2>
+            <div style="overflow-x:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>category</th>
+                    <th>endpoint</th>
+                    <th>payload</th>
+                    <th>status</th>
+                    <th>latency ms</th>
+                    <th>success</th>
+                    <th>detection</th>
+                    <th>evidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for f in exp.results.findings %}
+                    <tr>
+                      <td>{{ f.category }}</td>
+                      <td style="font-family:monospace; font-size:12px;">{{ f.method }} {{ f.endpoint }}</td>
+                      <td style="font-family:monospace; font-size:12px;">{{ f.payload }}</td>
+                      <td>{{ f.status }}</td>
+                      <td>{{ f.latency_ms }}</td>
+                      <td>{{ "yes" if f.success else "no" }}</td>
+                      <td>{{ f.detection_signal or "-" }}</td>
+                      <td>{{ f.evidence }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endif %}
 
         {% if exp.safety %}
           <div style="margin-top:16px;">
             <h2 style="margin:0 0 10px 0; font-size:16px;">Safety policy</h2>
-            <p><b>approved users:</b> {{ (exp.safety.authorization.approved_users or [])|join(", ") if exp.safety.authorization is defined else "none" }}</p>
-            <p><b>allowed ips:</b> {{ (exp.safety.scope.allowed_ips or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
-            <p><b>allowed ports:</b> {{ (exp.safety.scope.allowed_ports or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
-            <p><b>allowed urls:</b> {{ (exp.safety.scope.allowed_urls or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
-            <p><b>allowed accounts:</b> {{ (exp.safety.scope.allowed_accounts or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
-            <p><b>allowed services:</b> {{ (exp.safety.scope.allowed_services or [])|join(", ") if exp.safety.scope is defined else "none" }}</p>
-            <p><b>requests per minute:</b> {{ exp.safety.rate_limit.requests_per_minute if exp.safety.rate_limit is defined else "n/a" }}</p>
-            <p><b>login attempts per minute:</b> {{ exp.safety.rate_limit.login_attempts_per_minute if exp.safety.rate_limit is defined else "n/a" }}</p>
-            <p><b>payloads per minute:</b> {{ exp.safety.rate_limit.payloads_per_minute if exp.safety.rate_limit is defined else "n/a" }}</p>
-            <p><b>bandwidth cap:</b> {{ exp.safety.rate_limit.bandwidth_kbps if exp.safety.rate_limit is defined else "n/a" }} kbps</p>
-            <p><b>packet cap:</b> {{ exp.safety.rate_limit.packet_volume_per_minute if exp.safety.rate_limit is defined else "n/a" }} packets/min</p>
-            <p><b>duration cap:</b> {{ exp.safety.time_limit.max_duration_seconds if exp.safety.time_limit is defined else "n/a" }} seconds</p>
-            <p><b>scheduled end:</b> {{ exp.safety.time_limit.scheduled_end if exp.safety.time_limit is defined and exp.safety.time_limit.scheduled_end else "not set" }}</p>
-            <p><b>kill switch:</b> {{ "engaged" if exp.safety.kill_switch is defined and exp.safety.kill_switch.engaged else "ready" }}</p>
+            <p><b>Approved Users:</b> {{ (exp.safety.authorization.approved_users or [])|join(", ") if exp.safety.authorization is defined else "None" }}</p>
+            <p><b>Allowed IPs:</b> {{ (exp.safety.scope.allowed_ips or [])|join(", ") if exp.safety.scope is defined else "None" }}</p>
+            <p><b>Allowed Ports:</b> {{ (exp.safety.scope.allowed_ports or [])|join(", ") if exp.safety.scope is defined else "None" }}</p>
+            <p><b>Allowed URLs:</b> {{ (exp.safety.scope.allowed_urls or [])|join(", ") if exp.safety.scope is defined else "None" }}</p>
+            <p><b>Allowed Accounts:</b> {{ (exp.safety.scope.allowed_accounts or [])|join(", ") if exp.safety.scope is defined else "None" }}</p>
+            <p><b>Allowed Services:</b> {{ (exp.safety.scope.allowed_services or [])|join(", ") if exp.safety.scope is defined else "None" }}</p>
+            <p><b>Requests per Minute:</b> {{ exp.safety.rate_limit.requests_per_minute if exp.safety.rate_limit is defined else "N/A" }}</p>
+            <p><b>Login Attempts per Minute:</b> {{ exp.safety.rate_limit.login_attempts_per_minute if exp.safety.rate_limit is defined else "N/A" }}</p>
+            <p><b>Payloads per Minute:</b> {{ exp.safety.rate_limit.payloads_per_minute if exp.safety.rate_limit is defined else "N/A" }}</p>
+            <p><b>Bandwidth Cap:</b> {{ exp.safety.rate_limit.bandwidth_kbps if exp.safety.rate_limit is defined else "N/A" }} kbps</p>
+            <p><b>Packet Cap:</b> {{ exp.safety.rate_limit.packet_volume_per_minute if exp.safety.rate_limit is defined else "N/A" }} packets/min</p>
+            <p><b>Duration Cap:</b> {{ exp.safety.time_limit.max_duration_seconds if exp.safety.time_limit is defined else "N/A" }} seconds</p>
+            <p><b>Scheduled End:</b> {{ exp.safety.time_limit.scheduled_end if exp.safety.time_limit is defined and exp.safety.time_limit.scheduled_end else "Not set" }}</p>
+            <p><b>Kill Switch:</b> {{ "Engaged" if exp.safety.kill_switch is defined and exp.safety.kill_switch.engaged else "Ready" }}</p>
             <h2 style="margin:0 0 10px 0; font-size:16px;">Results</h2>
-            <p><b>mode:</b> {{ exp.results.mode }}</p>
-            <p><b>avg throughput:</b> {{ exp.results.avg_throughput_kbps }} kbps</p>
-            <p><b>avg detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
-            <p><b>guidance:</b> {{ exp.results.guidance }}</p>
-            <p><b>samples:</b> {{ exp.results.sample_count }}</p>
+            <p><b>Mode:</b> {{ exp.results.mode }}</p>
+            <p><b>Average Throughput:</b> {{ exp.results.avg_throughput_kbps }} kbps</p>
+            <p><b>Average Detectability:</b> {{ exp.results.avg_detectability_score }}/100</p>
+            <p><b>Guidance:</b> {{ exp.results.guidance }}</p>
+            <p><b>Samples:</b> {{ exp.results.sample_count }}</p>
             {% if exp.results.success_rate_percent is defined %}
-              <p><b>success rate:</b> {{ exp.results.success_rate_percent }}%</p>
+              <p><b>Success Rate:</b> {{ exp.results.success_rate_percent }}%</p>
+            {% endif %}
+            {% if exp.results.simulation_effectiveness_target_percent is defined %}
+              <p><b>Simulation Effectiveness Target:</b> {{ exp.results.simulation_effectiveness_target_percent }}%</p>
             {% endif %}
             {% if exp.results.status_counts is defined %}
-              <p><b>status counts:</b> {{ exp.results.status_counts }}</p>
+              <p><b>Status Counts:</b> {{ exp.results.status_counts }}</p>
             {% endif %}
             <!-- {% if exp.results %}
               <p>Results: {{ exp.results }}</p>
@@ -354,15 +364,15 @@
         {% if exp.results and exp.results.safety_report %}
           <div style="margin-top:16px;">
             <h2 style="margin:0 0 10px 0; font-size:16px;">Safety audit</h2>
-            <p><b>summary:</b> {{ exp.results.safety_report.summary }}</p>
-            <p><b>kill switch engaged:</b> {{ "yes" if exp.results.safety_report.kill_switch_engaged else "no" }}</p>
-            <p><b>kill reason:</b> {{ exp.results.safety_report.kill_reason if exp.results.safety_report.kill_reason else "none" }}</p>
-            <p><b>decision counts:</b> {{ exp.results.safety_report.decision_counts }}</p>
-            <p><b>scope violations:</b> {{ exp.results.safety_report.scope_violations }}</p>
-            <p><b>total requests watched:</b> {{ exp.results.safety_report.total_requests }}</p>
-            <p><b>targets touched:</b> {{ (exp.results.safety_report.targets_touched or [])|join(", ") if exp.results.safety_report.targets_touched else "none" }}</p>
+            <p><b>Summary:</b> {{ exp.results.safety_report.summary }}</p>
+            <p><b>Kill Switch Engaged:</b> {{ "Yes" if exp.results.safety_report.kill_switch_engaged else "No" }}</p>
+            <p><b>Kill Reason:</b> {{ exp.results.safety_report.kill_reason if exp.results.safety_report.kill_reason else "None" }}</p>
+            <p><b>Decision Counts:</b> {{ exp.results.safety_report.decision_counts }}</p>
+            <p><b>Scope Violations:</b> {{ exp.results.safety_report.scope_violations }}</p>
+            <p><b>Total Requests Watched:</b> {{ exp.results.safety_report.total_requests }}</p>
+            <p><b>Targets Touched:</b> {{ (exp.results.safety_report.targets_touched or [])|join(", ") if exp.results.safety_report.targets_touched else "None" }}</p>
             {% if exp.results.safety_report.user_alerts %}
-              <p><b>alerts:</b> {{ exp.results.safety_report.user_alerts|join(" | ") }}</p>
+              <p><b>Alerts:</b> {{ exp.results.safety_report.user_alerts|join(" | ") }}</p>
             {% endif %}
             {% if exp.results.safety_report.events_for_view %}
               <div style="margin-top:12px;">
@@ -378,24 +388,27 @@
             {% endif %}
           </div>
         {% endif %}
-        </div>
-      {% else %}
-        <div class="panel" style="margin-top:16px;">
-          <h2>Results</h2>
-          <p class="panel-hint">No results yet. Run the experiment to generate metrics.</p>
-        </div>
-      {% endif %}
 
-      <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
-        <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">Dashboard</a>
-        <a class="btn-secondary" href="{{ url_for('experiment_history') }}">History</a>
+        <!-- action buttons -->
+        <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+          <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="btn-secondary" href="{{ url_for('experiment_history') }}">History</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder', experiment_id=(exp._id|string)) }}">Reuse Config</a>
           <!-- Noah F - button for deleting the target -->
-        <button class="delete-btn" onclick="deleteTarget('{{ exp._id|string }}')">
-          Delete
-        </button>
-        <!-- </form> -->
+          <button class="delete-btn" onclick="deleteTarget('{{ exp._id|string }}')">
+            Delete
+          </button>
+        </div>
       </div>
     </main>
+
+    <div class="loading-overlay" id="attackLoadingOverlay" hidden>
+      <div class="loading-dialog">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <h2>Running experiment</h2>
+        <p>Executing the authorized module and collecting run information.</p>
+      </div>
+    </div>
 
     <aside class="right-sidebar" id="rightSidebar">
       <section class="section" style="height:100%">
@@ -406,10 +419,6 @@
       </section>
     </aside>
   </div>
-</body>
-</html>
-<!-- </html> -->
-
 <script>
 //Noah - jsfunction for deleting an experiment. uses the delete_experiment route to do so
 function deleteTarget(id){
@@ -431,3 +440,15 @@ function deleteTarget(id){
 }
 
 </script>
+<script>
+document.querySelectorAll('.attack-run-form').forEach((form) => {
+  form.addEventListener('submit', () => {
+    const overlay = document.getElementById('attackLoadingOverlay');
+    if (overlay) {
+      overlay.hidden = false;
+    }
+  });
+});
+</script>
+</body>
+</html>

@@ -6,6 +6,9 @@ from urllib.parse import urlparse
 from Attacks.modules import target_guard
 from Attacks.modules.base import AttackResult, BaseRunner, Finding
 
+MD5_RE = re.compile(r"^[a-f0-9]{32}$", re.IGNORECASE)
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+
 SQL_ERROR_PATTERNS = [
     r"SQL syntax.*MySQL",
     r"Warning.*mysql_",
@@ -115,6 +118,8 @@ class SqliRunner(BaseRunner):
 
             baseline = baselines.get(self._endpoint_key(ep))
             finding = self._evaluate(response, latency_ms, ep, payload, category, baseline)
+            if finding.success or finding.detection_signal == "":
+                finding.exposed_data = self._extract_exposed(response, ep, category)
             result.findings.append(finding)
             if finding.success:
                 result.success_count += 1
@@ -140,6 +145,7 @@ class SqliRunner(BaseRunner):
             time.sleep(self.min_interval)
 
         result.target_metrics = self._pull_castrange_metrics()
+        result.exposed_summary = self._build_exposed_summary(result)
         result.completed_at = datetime.utcnow()
         result.guidance = self._build_guidance(result)
         return result
@@ -352,6 +358,105 @@ class SqliRunner(BaseRunner):
             return None
         return None
 
+    # -- exposed-data extraction -----------------------------------------
+
+    def _extract_exposed(self, response, ep, category):
+        """Pull out concrete data the attack actually leaked from the response."""
+        exposed = {}
+        body = response.text or ""
+        content_type = (response.headers.get("Content-Type") or "").lower()
+
+        # Auth bypass: redirect target + session cookie set
+        if ep["type"] == "login" and category == "auth_bypass":
+            location = response.headers.get("Location") or ""
+            if location:
+                exposed["redirect_to"] = location
+            set_cookie = response.headers.get("Set-Cookie") or ""
+            if "session=" in set_cookie:
+                exposed["session_cookie_set"] = True
+
+        # SQL error text: everything from a verbose response is leaked
+        err_match = SQL_ERROR_RE.search(body)
+        if err_match:
+            start = max(0, err_match.start() - 40)
+            end = min(len(body), err_match.end() + 200)
+            exposed["sql_error_excerpt"] = body[start:end].strip()
+
+        # JSON UNION dump: pull the result rows
+        if "application/json" in content_type:
+            try:
+                data = response.json()
+            except Exception:
+                data = None
+            if isinstance(data, dict) and isinstance(data.get("results"), list):
+                rows = [r for r in data["results"][:20] if isinstance(r, dict)]
+                if rows:
+                    exposed["records"] = rows
+                    hashes, emails = [], []
+                    for row in rows:
+                        for value in row.values():
+                            if isinstance(value, str):
+                                if MD5_RE.match(value):
+                                    hashes.append(value)
+                                if EMAIL_RE.match(value):
+                                    emails.append(value)
+                    if hashes:
+                        exposed["password_hashes"] = list(dict.fromkeys(hashes))
+                    if emails:
+                        exposed["emails"] = list(dict.fromkeys(emails))
+
+        return exposed
+
+    def _build_exposed_summary(self, result):
+        """Aggregate per-finding exposed data into a single report-ready dict."""
+        summary = {
+            "auth_bypasses": 0,
+            "session_cookies_obtained": 0,
+            "sql_errors_leaked": 0,
+            "records_extracted": 0,
+            "unique_password_hashes": 0,
+            "unique_emails": 0,
+            "sample_records": [],
+            "sample_hashes": [],
+            "sample_emails": [],
+            "sample_errors": [],
+        }
+        all_hashes = set()
+        all_emails = set()
+        all_records = []
+        seen_records = set()
+
+        for finding in result.findings:
+            data = finding.exposed_data or {}
+            if data.get("redirect_to"):
+                summary["auth_bypasses"] += 1
+            if data.get("session_cookie_set"):
+                summary["session_cookies_obtained"] += 1
+            if data.get("sql_error_excerpt"):
+                summary["sql_errors_leaked"] += 1
+                if len(summary["sample_errors"]) < 3:
+                    summary["sample_errors"].append(data["sql_error_excerpt"])
+            for record in data.get("records") or []:
+                if not isinstance(record, dict):
+                    continue
+                key = tuple(sorted((k, str(v)) for k, v in record.items()))
+                if key in seen_records:
+                    continue
+                seen_records.add(key)
+                all_records.append(record)
+            for h in data.get("password_hashes") or []:
+                all_hashes.add(h)
+            for e in data.get("emails") or []:
+                all_emails.add(e)
+
+        summary["records_extracted"] = len(all_records)
+        summary["sample_records"] = all_records[:10]
+        summary["unique_password_hashes"] = len(all_hashes)
+        summary["sample_hashes"] = sorted(all_hashes)[:10]
+        summary["unique_emails"] = len(all_emails)
+        summary["sample_emails"] = sorted(all_emails)[:10]
+        return summary
+
     # -- guidance --------------------------------------------------------
 
     def _build_guidance(self, result: AttackResult):
@@ -363,6 +468,18 @@ class SqliRunner(BaseRunner):
             return "No SQLi attempts were sent (all blocked or filtered out before request)."
         rate = result.success_rate_percent
         det = result.detection_rate_observed_percent
+        exposed_bits = []
+        es = result.exposed_summary or {}
+        if es.get("records_extracted"):
+            exposed_bits.append(f"{es['records_extracted']} records")
+        if es.get("unique_password_hashes"):
+            exposed_bits.append(f"{es['unique_password_hashes']} password hashes")
+        if es.get("unique_emails"):
+            exposed_bits.append(f"{es['unique_emails']} emails")
+        if es.get("auth_bypasses"):
+            exposed_bits.append(f"{es['auth_bypasses']} auth bypasses")
+        exposed_tail = f" Exposed: {', '.join(exposed_bits)}." if exposed_bits else ""
+
         if result.success_count == 0 and det > 50:
             return (f"No SQLi findings ({rate}%); high observed detection ({det}%). "
                     "Target appears to be behind a WAF or rate limiter.")
@@ -370,9 +487,10 @@ class SqliRunner(BaseRunner):
             return f"No SQLi findings on this run ({result.sample_count} attempts)."
         if det > 50:
             return (f"SQLi findings: {result.success_count}/{result.sample_count} ({rate}%); "
-                    f"observed detection {det}%. Defenses are catching some but not all attempts.")
+                    f"observed detection {det}%. Defenses are catching some but not all attempts."
+                    f"{exposed_tail}")
         if rate > 50:
             return (f"SQLi findings: {result.success_count}/{result.sample_count} ({rate}%); "
-                    "target appears highly vulnerable.")
+                    f"target appears highly vulnerable.{exposed_tail}")
         return (f"SQLi findings: {result.success_count}/{result.sample_count} ({rate}%); "
-                f"observed detection {det}%.")
+                f"observed detection {det}%.{exposed_tail}")

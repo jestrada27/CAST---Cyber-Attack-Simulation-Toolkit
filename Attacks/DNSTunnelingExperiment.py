@@ -10,6 +10,10 @@ def _bounded(value, low, high):
     return max(low, min(high, value))
 
 
+def _effectiveness_target(target):
+    return _bounded(float(target or 70.0), 0.0, 95.0)
+
+
 def _risk_band(score):
     if score >= 70:
         return "High"
@@ -49,15 +53,16 @@ def _build_safety_fields(safety_engine):
     }
 
 
-def run_dns_tunneling_experiment(attempts, rate_limit, dry_run=True, target=None, safety_engine=None):
+def run_dns_tunneling_experiment(attempts, rate_limit, dry_run=True, target=None, safety_engine=None, effectiveness_target_percent=70.0):
     """
     Safe lab simulation for DNS tunneling throughput vs detectability.
     No network traffic is generated.
     """
     started_at = datetime.utcnow()
 
-    sample_count = int(_bounded(int(attempts), 1, 50))
-    bounded_rate = _bounded(float(rate_limit), 0.1, 10.0)
+    sample_count = int(_bounded(int(attempts), 1, 100))
+    bounded_rate = _bounded(float(rate_limit), 0.1, 20.0)
+    effectiveness_target = _effectiveness_target(effectiveness_target_percent)
     base_qps = max(0.5, bounded_rate * 4.0)
     payload_bytes = 64 if dry_run else 96
     target_url = (target or {}).get("ip_or_url") or "dns://lab.cast.local"
@@ -147,6 +152,7 @@ def run_dns_tunneling_experiment(attempts, rate_limit, dry_run=True, target=None
     executed_samples = len(samples)
     avg_throughput = round(throughput_total / executed_samples, 3) if executed_samples else 0.0
     avg_detectability = round(detectability_total / executed_samples, 2) if executed_samples else 0.0
+    effectiveness_score = 0.0 if dry_run or not executed_samples else effectiveness_target
     overall_risk = _risk_band(avg_detectability)
 
     if status_counts.get("terminated"):
@@ -167,6 +173,8 @@ def run_dns_tunneling_experiment(attempts, rate_limit, dry_run=True, target=None
         "started_at": started_at,
         "completed_at": completed_at,
         "sample_count": executed_samples,
+        "success_rate_percent": effectiveness_score,
+        "simulation_effectiveness_target_percent": effectiveness_target,
         "avg_throughput_kbps": avg_throughput,
         "avg_detectability_score": avg_detectability,
         "guidance": guidance,

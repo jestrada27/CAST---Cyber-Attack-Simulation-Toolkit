@@ -30,17 +30,17 @@
   <!-- Group modal -->
   <div class="modal-overlay" id="groupModalOverlay">
     <div class="modal-dynamic modal-groups vertical-box" id="groupModal">
-      <h2>TODO</h2>
-      <p>Put options here</p>
+      <h2>Group Options</h2>
+      <p>Select an available group action.</p>
     </div>
   </div>
 
   <!-- Create new group modal-->
   <div class="modal" id="createGroupModal">
     <div class="modal-content">
-      <h3>Create new Group: Whats the name?</h3>
+      <h3>Create a New Group</h3>
       <form id="createGroupForm">
-        <input type="text" id="createGroupNameInput" placeholder="Name" required autocomplete="off">
+        <input type="text" id="createGroupNameInput" placeholder="Group name" required autocomplete="off">
         <button type="submit" id="createGroupModalCreateBtn">Create</button>
         <button type="button" id="createGroupModalCloseBtn">Cancel</button>
       </form>
@@ -64,7 +64,7 @@
     <div class="modal-content">
       <h3>Invite</h3>
       <form id="inviteMemberForm">
-        <input type="text" id="inviteMemberInput" placeholder="Name" required autocomplete="off">
+        <input type="text" id="inviteMemberInput" placeholder="Username" required autocomplete="off">
         <button type="submit" id="createGroupModalCreateBtn">Invite</button>
         <button class="button" type="button" id="inviteModalCloseBtn">Close</button>
       </form>
@@ -79,7 +79,7 @@
           <a class="item" href="{{ url_for('experiment_builder') }}">Experiment Builder</a>
           <a class="item" href="{{ url_for('experiment_history') }}">Experiment History</a>
           <a class="item" href="{{ url_for('targets') }}">Manage Targets</a>
-          <button type="button" id="invitations">Invites</button>
+          <button type="button" id="invitations">Invitations</button>
           <a class="item" href="{{ url_for('reports.database_page') }}">Reports</a>
         </div>
       </section>
@@ -134,9 +134,9 @@
           <p class="sub">Welcome, {{ username }}</p>
         </div>
         <div style="display:flex; gap:10px; align-items:center;">
-          <a class="btn-primary" href="{{ url_for('experiment_builder') }}">new experiment</a>
-          <a class="nav-item" href="{{ url_for('experiment_history') }}">experiment history</a>
-          <a class="nav-item" href="{{ url_for('targets') }}">manage targets</a>
+          <a class="btn-primary" href="{{ url_for('experiment_builder') }}">New Experiment</a>
+          <a class="nav-item" href="{{ url_for('experiment_history') }}">Experiment History</a>
+          <a class="nav-item" href="{{ url_for('targets') }}">Manage Targets</a>
         </div>
         <!-- <div class="pill">Offline mode</div> -->
       </header>
@@ -153,24 +153,29 @@
 
       <section class="grid cards">
         <div class="card">
+          <div class="card-label">Active Experiments</div>
           <div class="card-value">{{ active_experiment_count }}</div>
           <div class="card-hint">Running now</div>
         </div>
         <div class="card">
+          <div class="card-label">Completed Experiments</div>
           <div class="card-value">{{ completed_experiment_count }}</div>
           <div class="card-hint">Total finished</div>
         </div>
         <div class="card">
+          <div class="card-label">Average Throughput</div>
           <div class="card-value">{{ average_throughput_kbps }}</div>
-          <div class="card-hint">Avg throughput (kbps)</div>
+          <div class="card-hint">Kbps across completed runs</div>
         </div>
         <div class="card">
+          <div class="card-label">Average Detectability</div>
           <div class="card-value">{{ average_detectability_score }}</div>
-          <div class="card-hint">Avg detectability</div>
+          <div class="card-hint">Score across completed runs</div>
         </div>
         <div class="card">
+          <div class="card-label">Registered Targets</div>
           <div class="card-value">{{ targets_count }}</div>
-          <div class="card-hint">Whitelisted</div>
+          <div class="card-hint">Registered targets</div>
         </div>
       </section>
 
@@ -181,41 +186,48 @@
           <div class="metric">
             <div class="metric-row">
               <span>Consent Verified</span>
-              <span>100%</span>
+              <span>{{ consent_verified_percent }}%</span>
             </div>
             <div class="progress">
-              <div class="bar" style="width:100%"></div>
+              <div class="bar" style="width:{{ consent_verified_percent }}%"></div>
             </div>
           </div>
 
           <div class="metric">
             <div class="metric-row">
               <span>Rate Limits Enabled</span>
-              <span>85%</span>
+              <span>{{ rate_limits_enabled_percent }}%</span>
             </div>
             <div class="progress">
-              <div class="bar" style="width:85%"></div>
+              <div class="bar" style="width:{{ rate_limits_enabled_percent }}%"></div>
             </div>
           </div>
 
           <div class="metric">
             <div class="metric-row">
-              <span>Dry-Run Default</span>
-              <span>On</span>
+              <span>Dry-Run Usage</span>
+              <span>{{ dry_run_percent }}%</span>
             </div>
-            <div class="tag ok">Enabled</div>
+            <div class="progress">
+              <div class="bar" style="width:{{ dry_run_percent }}%"></div>
+            </div>
           </div>
         </div>
 
         <div class="panel">
           <h2>Module Activity</h2>
-          <div class="barchart">
-            <div class="barcol" style="--h: 30%"><span>SQLi</span></div>
-            <div class="barcol" style="--h: 55%"><span>XSS</span></div>
-            <div class="barcol" style="--h: 20%"><span>Replay</span></div>
-            <div class="barcol" style="--h: 35%"><span>DNS</span></div>
-            <div class="barcol" style="--h: 40%"><span>Brute Force</span></div>
-          </div>
+          {% if has_module_activity %}
+            <div class="barchart">
+              {% for item in module_activity %}
+                <div class="barcol" style="--h: {{ item.height }}%" title="{{ item.label }}: {{ item.count }}">
+                  <strong>{{ item.count }}</strong>
+                  <span>{{ item.label }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="panel-hint">No module activity has been recorded yet.</p>
+          {% endif %}
         </div>
 
         <div class="panel">
@@ -223,15 +235,15 @@
 
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
             <a class="btn-primary" href="{{ url_for('experiment_builder', module_id='dns', attempts=5, rate_limit=1.0, dry_run=True) }}">
-              create DNS dry-run (5)
+              Create DNS Dry Run (5)
             </a>
 
             <a class="btn-secondary" href="{{ url_for('experiment_builder', module_id='dns', attempts=10, rate_limit=0.8, dry_run=True) }}">
-              create DNS dry-run (10)
+              Create DNS Dry Run (10)
             </a>
 
             <a class="nav-item" href="{{ url_for('experiment_history', module_id='dns') }}">
-              view DNS history
+              View DNS History
             </a>
           </div>
 
@@ -276,8 +288,8 @@
                   {% endif %}
                 </div>
                 <div class="quick-actions">
-                  <a class="nav-item" href="{{ url_for('experimentdetails', experiment_id=exp._id) }}">details</a>
-                  <a class="btn-primary" href="{{ url_for('experiment_builder', target_id=(exp.target_id|string), module_id=exp.module_id, attempts=exp.attempts, rate_limit=exp.rate_limit, dry_run='true' if exp.dry_run else 'false') }}">configure attack</a>
+                  <a class="nav-item" href="{{ url_for('experimentdetails', experiment_id=exp._id) }}">Details</a>
+                  <a class="btn-primary" href="{{ url_for('experiment_builder', target_id=(exp.target_id|string), module_id=exp.module_id, attempts=exp.attempts, rate_limit=exp.rate_limit, dry_run='true' if exp.dry_run else 'false') }}">Configure Run</a>
                 </div>
               </div>
             {% endfor %}

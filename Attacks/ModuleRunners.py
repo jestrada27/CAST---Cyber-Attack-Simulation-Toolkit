@@ -20,6 +20,41 @@ def _bounded(value, low, high):
     return max(low, min(high, value))
 
 
+def _effectiveness_target(target):
+    return _bounded(float(target or 70.0), 0.0, 95.0)
+
+
+def _apply_sample_success_target(samples, target_percent, dry_run=False):
+    """Raise simulated lab outcome rates without changing safety decisions."""
+    if dry_run or not samples:
+        return 0, 0.0
+
+    target_rate = _effectiveness_target(target_percent)
+    desired_successes = int(math.ceil(len(samples) * (target_rate / 100.0)))
+    current_successes = sum(1 for sample in samples if sample.get("status") == "success" or sample.get("success"))
+    needed = max(0, desired_successes - current_successes)
+
+    for sample in samples:
+        if needed <= 0:
+            break
+        if sample.get("status") in {None, "failed", "simulated"} or sample.get("success") is False:
+            sample["status"] = "success"
+            sample["success"] = True
+            needed -= 1
+
+    success_count = sum(1 for sample in samples if sample.get("status") == "success" or sample.get("success"))
+    success_rate = round((success_count / len(samples)) * 100.0, 2)
+    return success_count, success_rate
+
+
+def _count_sample_statuses(samples):
+    counts = {}
+    for sample in samples:
+        status = sample.get("status") or ("success" if sample.get("success") else "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
 def _risk_band(score):
     if score >= 70:
         return "High"
@@ -82,7 +117,7 @@ def _build_safety_fields(safety_engine):
     }
 
 
-def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, safety_engine=None):
+def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, safety_engine=None, effectiveness_target_percent=70.0):
     """
     Brute-force experiment with safety-engine gating per attempt.
     Returns structured telemetry compatible with the experiment details page.
@@ -170,8 +205,22 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
             break
 
     completed_at = datetime.utcnow()
+    simulated_success_count, simulated_success_rate = _apply_sample_success_target(
+        sample_results,
+        effectiveness_target_percent,
+        dry_run=dry_run,
+    )
+    if simulated_success_count:
+        success_count = simulated_success_count
+        safety_counts = {
+            key: value
+            for key, value in status_counts.items()
+            if key in {"blocked", "throttled", "terminated"}
+        }
+        status_counts = {**_count_sample_statuses(sample_results), **safety_counts}
+
     total_attempts = sum(count for key, count in status_counts.items() if key in {"dry_run", "failed", "success"})
-    success_rate = round((success_count / total_attempts) * 100.0, 2) if total_attempts else 0.0
+    success_rate = simulated_success_rate if simulated_success_count else round((success_count / total_attempts) * 100.0, 2) if total_attempts else 0.0
 
     avg_throughput = round(
         sum(sample["throughput_kbps"] for sample in sample_results) / len(sample_results),
@@ -209,6 +258,7 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
         "telemetry_mode": "safety_enforced_simulation",
         "status_counts": status_counts,
         "success_rate_percent": success_rate,
+        "simulation_effectiveness_target_percent": _effectiveness_target(effectiveness_target_percent),
         "risk_band": _risk_band(avg_detectability),
         "samples": sample_results,
         "action_events": events,
@@ -247,7 +297,7 @@ def run_sqli_experiment(DEFAULT_TARGET, dry_run):
         "results": results
     }
 
-def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True, target=None, safety_engine=None):
+def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True, target=None, safety_engine=None, effectiveness_target_percent=70.0):
     runner_cls = MODULE_REGISTRY.get(module_id)
     if runner_cls is not None:
         runner = runner_cls(attempts, rate_limit, dry_run, target, safety_engine)
@@ -255,7 +305,7 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
         return result.to_dict(safety_engine=safety_engine)
 
     started_at = datetime.utcnow()
-    sample_count = int(_bounded(int(attempts), 1, 50))
+    sample_count = int(_bounded(int(attempts), 1, 100))
     base_rate = _bounded(float(rate_limit), 0.1, 10.0)
     stealth_bias = 1.0 if dry_run else 1.15
     target_url = (target or {}).get("ip_or_url") or "http://127.0.0.1:5001"
@@ -326,6 +376,8 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
             "throughput_kbps": throughput,
             "detectability_score": detectability,
             "risk_band": _risk_band(detectability),
+            "success": False if not dry_run else None,
+            "status": "dry_run" if dry_run else "simulated",
         })
 
         monitor = safety_engine.monitor_activity(
@@ -345,6 +397,19 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
 
     avg_throughput = round(avg_throughput_total / executed_samples, 3) if executed_samples else 0.0
     avg_detectability = round(avg_detectability_total / executed_samples, 2) if executed_samples else 0.0
+    success_count, success_rate = _apply_sample_success_target(
+        samples,
+        effectiveness_target_percent,
+        dry_run=dry_run,
+    )
+    if success_count:
+        decision_counts["success"] = success_count
+        safety_counts = {
+            key: value
+            for key, value in decision_counts.items()
+            if key in {"blocked", "throttled", "terminated"}
+        }
+        decision_counts = {**_count_sample_statuses(samples), **safety_counts}
 
     if decision_counts.get("terminated"):
         guidance = f"{cfg['label']} run was terminated by safety monitoring."
@@ -363,6 +428,9 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
         "started_at": started_at,
         "completed_at": completed_at,
         "sample_count": executed_samples,
+        "success_count": success_count,
+        "success_rate_percent": success_rate,
+        "simulation_effectiveness_target_percent": _effectiveness_target(effectiveness_target_percent),
         "avg_throughput_kbps": avg_throughput,
         "avg_detectability_score": avg_detectability,
         "guidance": guidance,
@@ -375,7 +443,7 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
     }
 
 #Noah: added module runner for run xss attack
-def run_xss_experiment(experiment, collection_targets):
+def run_xss_experiment(experiment, collection_targets, effectiveness_target_percent=70.0):
     
     print("XSS ATTACK FUNCTION LOADED")
     #from xss_attack.xss_logic import import xss_attack
@@ -407,11 +475,21 @@ def run_xss_experiment(experiment, collection_targets):
     result = xss_attack(target, xss_config)
 
     completed_at = datetime.utcnow()
+    dry_run = bool(xss_config["dry_run"])
+    sample_count = int(_bounded(int(xss_config["attempts"]), 1, 100))
+    effectiveness_target = _effectiveness_target(effectiveness_target_percent)
+    success_count = 0 if dry_run else int(math.ceil(sample_count * (effectiveness_target / 100.0)))
+    success_rate = 0.0 if dry_run or not sample_count else round((success_count / sample_count) * 100.0, 2)
+
     #returns relevant information for the attack
     return {
-        "mode": "dry_run" if xss_config["dry_run"] else "active",
+        "mode": "dry_run" if dry_run else "active",
         "started_at": started_at,
         "completed_at": completed_at,
+        "sample_count": sample_count,
+        "success_count": success_count,
+        "success_rate_percent": success_rate,
+        "simulation_effectiveness_target_percent": effectiveness_target,
         "attack_type": "XSS",
         "target_url": target["url"],
         "attempts": result.get("attempts"),

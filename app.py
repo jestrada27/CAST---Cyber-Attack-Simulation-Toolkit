@@ -579,6 +579,51 @@ def get_dashboard_metrics(owner_username):
     return average_throughput_kbps, average_detectability_score
 
 
+def get_dashboard_activity(owner_username):
+    """Build dashboard chart and safety summary data from saved experiments."""
+    experiments = list(collection_experiments.find({"owner": owner_username}))
+    targets = list(collection_targets.find({"owner": owner_username}))
+    module_order = ["sqli", "xss", "replay", "dns", "brute force"]
+    module_counts = {module_id: 0 for module_id in module_order}
+
+    dry_run_count = 0
+    rate_limited_count = 0
+    for exp in experiments:
+        module_id = exp.get("module_id")
+        if module_id in module_counts:
+            module_counts[module_id] += 1
+        if exp.get("dry_run"):
+            dry_run_count += 1
+        safety = exp.get("safety") or {}
+        if safety.get("rate_limit"):
+            rate_limited_count += 1
+
+    max_count = max(module_counts.values()) if module_counts else 0
+    module_activity = []
+    for module_id in module_order:
+        count = module_counts[module_id]
+        height = round((count / max_count) * 100) if max_count else 0
+        module_activity.append({
+            "id": module_id,
+            "label": get_module_label(module_id),
+            "count": count,
+            "height": height,
+        })
+
+    approved_targets = sum(1 for target in targets if target.get("consent_status") == "approved")
+    consent_verified_percent = round((approved_targets / len(targets)) * 100) if targets else 0
+    rate_limits_enabled_percent = round((rate_limited_count / len(experiments)) * 100) if experiments else 0
+    dry_run_percent = round((dry_run_count / len(experiments)) * 100) if experiments else 0
+
+    return {
+        "module_activity": module_activity,
+        "has_module_activity": any(item["count"] for item in module_activity),
+        "consent_verified_percent": consent_verified_percent,
+        "rate_limits_enabled_percent": rate_limits_enabled_percent,
+        "dry_run_percent": dry_run_percent,
+    }
+
+
 def safety_form_state_from_settings(settings):
     """Convert normalized safety settings to template-friendly string values."""
     settings = settings or {}
@@ -703,12 +748,76 @@ def status_flash_category(status):
     return "success"
 
 
+def build_information_grab(module_id, target, results):
+    """Collect display-safe target and run observations after a module finishes."""
+    target = target or {}
+    results = results or {}
+    safety_report = results.get("safety_report") or {}
+    exposed_summary = results.get("exposed_summary") or {}
+    findings = results.get("findings") or []
+    samples = results.get("samples") or []
+
+    observed_endpoints = []
+    sample_payloads = []
+    for finding in findings:
+        endpoint = finding.get("endpoint")
+        method = finding.get("method")
+        payload = finding.get("payload")
+        if endpoint:
+            observed_endpoints.append(f"{method} {endpoint}".strip() if method else endpoint)
+        if payload and payload not in sample_payloads and len(sample_payloads) < 5:
+            sample_payloads.append(payload)
+
+    risk_notes = []
+    if exposed_summary.get("records_extracted"):
+        risk_notes.append("records exposed")
+    if exposed_summary.get("unique_password_hashes"):
+        risk_notes.append("password hashes observed")
+    if exposed_summary.get("auth_bypasses"):
+        risk_notes.append("authentication bypass observed")
+    if exposed_summary.get("sql_errors_leaked"):
+        risk_notes.append("verbose SQL errors leaked")
+    if safety_report.get("scope_violations"):
+        risk_notes.append("scope violations recorded")
+    if safety_report.get("kill_switch_engaged"):
+        risk_notes.append("kill switch engaged")
+
+    return {
+        "module": module_id,
+        "target_name": target.get("name", "unknown target"),
+        "target_endpoint": target.get("ip_or_url", "unknown"),
+        "target_environment": target.get("environment", "lab"),
+        "consent_status": target.get("consent_status", "pending"),
+        "allowed_services": target.get("allowed_services", []),
+        "allowed_ports": target.get("allowed_ports", []),
+        "allowed_accounts": target.get("allowed_accounts", []),
+        "approved_users": target.get("approved_users", []),
+        "telemetry_mode": results.get("telemetry_mode", results.get("mode", "unknown")),
+        "status_counts": results.get("status_counts", {}),
+        "observed_endpoints": list(dict.fromkeys(observed_endpoints))[:8],
+        "sample_payloads": sample_payloads,
+        "finding_count": len(findings),
+        "sample_count": results.get("sample_count", len(samples)),
+        "risk_notes": risk_notes,
+        "safety_summary": results.get("safety_summary", safety_report.get("summary", "not recorded")),
+    }
+
+
+def attach_information_grab(module_id, target, results):
+    """Attach information gathered during an authorized run to persisted results."""
+    if not isinstance(results, dict):
+        results = {"raw_result": results}
+    results["information_grab"] = build_information_grab(module_id, target, results)
+    return results
+
+
 def run_experiment_now(experiment, target, user):
     """Run an experiment module handler through the safety engine."""
     module_id = experiment.get("module_id")
     attempts = experiment.get("attempts", 5)
     rate_limit = experiment.get("rate_limit", 1.0)
     dry_run = bool(experiment.get("dry_run", True))
+    effectiveness_target_percent = safe_float(experiment.get("effectiveness_target_percent"), 70.0)
     safety_settings = experiment.get("safety") or normalize_safety_settings(
         {},
         module_id=module_id,
@@ -739,6 +848,7 @@ def run_experiment_now(experiment, target, user):
             "user_alerts": safety_engine.alerts,
             "safety_summary": safety_engine.final_status(),
         }
+        results = attach_information_grab(module_id, target, results)
         status = "Safety Blocked" if authorization["decision"] == "blocked" else "Terminated"
         return {
             "status": status,
@@ -755,7 +865,9 @@ def run_experiment_now(experiment, target, user):
                 dry_run=dry_run,
                 target=target,
                 safety_engine=safety_engine,
+                effectiveness_target_percent=effectiveness_target_percent,
             )
+            results = attach_information_grab(module_id, target, results)
             status = derive_run_status(dry_run, results.get("safety_summary"))
             return {
                 "status": status,
@@ -771,7 +883,9 @@ def run_experiment_now(experiment, target, user):
                 dry_run=dry_run,
                 target=target,
                 safety_engine=safety_engine,
+                effectiveness_target_percent=effectiveness_target_percent,
             )
+            results = attach_information_grab(module_id, target, results)
             status = derive_run_status(dry_run, results.get("safety_summary"))
             return {
                 "status": status,
@@ -781,7 +895,12 @@ def run_experiment_now(experiment, target, user):
             }
 
         if module_id == "xss":
-            results = run_xss_experiment(experiment, collection_targets)
+            results = run_xss_experiment(
+                experiment,
+                collection_targets,
+                effectiveness_target_percent=effectiveness_target_percent,
+            )
+            results = attach_information_grab(module_id, target, results)
 
             # if your xss result doesn't already include safety_summary,
             # this safely falls back
@@ -805,7 +924,9 @@ def run_experiment_now(experiment, target, user):
                 dry_run=dry_run,
                 target=target,
                 safety_engine=safety_engine,
+                effectiveness_target_percent=effectiveness_target_percent,
             )
+            results = attach_information_grab(module_id, target, results)
             status = derive_run_status(dry_run, results.get("safety_summary"))
             return {
                 "status": status,
@@ -819,42 +940,44 @@ def run_experiment_now(experiment, target, user):
             phase="runtime",
             metadata={"error": str(error)},
         )
-        return {
-            "status": "Failed",
-            "results": {
-                "mode": "failed",
-                "started_at": safety_engine.started_at,
-                "completed_at": datetime.utcnow(),
-                "sample_count": 0,
-                "avg_throughput_kbps": 0.0,
-                "avg_detectability_score": 0.0,
-                "guidance": f"Execution failed for module '{module_id}'.",
-                "status_counts": {"failed": 1},
-                "action_events": [{"decision": "terminated", "message": str(error)}],
-                "safety_report": safety_engine.build_report(),
-                "user_alerts": safety_engine.alerts,
-                "safety_summary": safety_engine.final_status(),
-            },
-            "message": f"Execution failed for module '{module_id}': {error}",
-            "category": "danger",
-        }
-
-    return {
-        "status": experiment.get("status", "Queued"),
-        "results": {
-            "mode": "unsupported_module",
+        results = attach_information_grab(module_id, target, {
+            "mode": "failed",
             "started_at": safety_engine.started_at,
             "completed_at": datetime.utcnow(),
             "sample_count": 0,
             "avg_throughput_kbps": 0.0,
             "avg_detectability_score": 0.0,
-            "guidance": f"Module '{module_id}' runner is not available yet.",
-            "status_counts": {"unsupported": 1},
-            "action_events": [],
+            "guidance": f"Execution failed for module '{module_id}'.",
+            "status_counts": {"failed": 1},
+            "action_events": [{"decision": "terminated", "message": str(error)}],
             "safety_report": safety_engine.build_report(),
             "user_alerts": safety_engine.alerts,
             "safety_summary": safety_engine.final_status(),
-        },
+        })
+        return {
+            "status": "Failed",
+            "results": results,
+            "message": f"Execution failed for module '{module_id}': {error}",
+            "category": "danger",
+        }
+
+    results = attach_information_grab(module_id, target, {
+        "mode": "unsupported_module",
+        "started_at": safety_engine.started_at,
+        "completed_at": datetime.utcnow(),
+        "sample_count": 0,
+        "avg_throughput_kbps": 0.0,
+        "avg_detectability_score": 0.0,
+        "guidance": f"Module '{module_id}' runner is not available yet.",
+        "status_counts": {"unsupported": 1},
+        "action_events": [],
+        "safety_report": safety_engine.build_report(),
+        "user_alerts": safety_engine.alerts,
+        "safety_summary": safety_engine.final_status(),
+    })
+    return {
+        "status": experiment.get("status", "Queued"),
+        "results": results,
         "message": f"Module '{module_id}' runner is not available yet.",
         "category": "warning",
     }
@@ -879,6 +1002,7 @@ def main_dashboard():
     })
     targets_count = collection_targets.count_documents({"owner": username})
     average_throughput_kbps, average_detectability_score = get_dashboard_metrics(username)
+    dashboard_activity = get_dashboard_activity(username)
 
     return render_template(
         'Dashboard/maindashboard.html',
@@ -888,7 +1012,8 @@ def main_dashboard():
         completed_experiment_count=completed_experiment_count,
         targets_count=targets_count,
         average_throughput_kbps=average_throughput_kbps,
-        average_detectability_score=average_detectability_score
+        average_detectability_score=average_detectability_score,
+        **dashboard_activity
     )
 
 @app.route("/experiment_builder", methods=["GET", "POST"])
@@ -900,7 +1025,7 @@ def experiment_builder():
 
     username = session["username"]
     recent_experiments = get_recent_experiments(username, limit=8)
-    targets = list(collection_targets.find({"owner": username}, {"name": 1}).sort("created_at", -1))
+    targets = list(collection_targets.find({"owner": username}).sort("created_at", -1))
 
     modules = [
         {"id": "brute force", "name": "Brute Force (Controlled)"},
@@ -922,12 +1047,14 @@ def experiment_builder():
     selected_module_id = request.args.get("module_id", "")
     selected_attempts = request.args.get("attempts", "5")
     selected_rate_limit = request.args.get("rate_limit", "1.0")
+    selected_effectiveness_target = request.args.get("effectiveness_target_percent", "70")
     selected_dry_run = request.args.get("dry_run", "true").lower() in ("true", "1", "on", "yes")
     if source_experiment:
         selected_target_id = str(source_experiment.get("target_id", "")) or selected_target_id
         selected_module_id = source_experiment.get("module_id", selected_module_id)
         selected_attempts = str(source_experiment.get("attempts", selected_attempts))
         selected_rate_limit = str(source_experiment.get("rate_limit", selected_rate_limit))
+        selected_effectiveness_target = str(source_experiment.get("effectiveness_target_percent", selected_effectiveness_target))
         selected_dry_run = bool(source_experiment.get("dry_run", selected_dry_run))
 
     selected_target = None
@@ -944,12 +1071,18 @@ def experiment_builder():
         owner_username=username,
     )
     selected_safety = safety_form_state_from_settings(default_safety_settings)
+    user_doc = collection_users.find_one({"_id": ObjectId(session["user_id"])}) or {}
+    user_groups = user_doc.get("groups", [])
+    for group in user_groups:
+        group_doc = database_name["groups"].find_one({"_id": group["group_id"]}) or {}
+        group["name"] = group_doc.get("name", "Unnamed Group")
 
     if request.method == "POST":
         target_id = request.form.get("target_id")
         module_id = request.form.get("module_id")
         attempts_raw = request.form.get("attempts", "5")
         rate_limit_raw = request.form.get("rate_limit", "1.0")
+        effectiveness_raw = request.form.get("effectiveness_target_percent", "70")
         dry_run = request.form.get("dry_run") == "on"
         xss_payloads = request.form.get("xss_safe_payloads", "").strip()
         xss_payload_list = []
@@ -961,8 +1094,9 @@ def experiment_builder():
         try:
             attempts = int(attempts_raw)
             rate_limit = float(rate_limit_raw)
+            effectiveness_target_percent = float(effectiveness_raw)
         except (TypeError, ValueError):
-            flash("Attempts and rate limit must be valid numbers.", "danger")
+            flash("Attempts, rate limit, and effectiveness target must be valid numbers.", "danger")
             selected_target = collection_targets.find_one({"_id": ObjectId(target_id), "owner": username}) if ObjectId.is_valid(target_id or "") else None
             selected_safety = safety_form_state_from_settings(build_safety_settings_from_form(request.form, selected_target or {}, username))
             return render_template(
@@ -975,12 +1109,18 @@ def experiment_builder():
                 selected_module_id=module_id or "",
                 selected_attempts=attempts_raw,
                 selected_rate_limit=rate_limit_raw,
+                selected_effectiveness_target=effectiveness_raw,
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
+                user_groups=user_groups,
             )
 
-        if attempts < 1 or attempts > 50 or rate_limit < 0.1 or rate_limit > 10:
-            flash("Use attempts 1-50 and rate_limit 0.1-10.", "danger")
+        if (
+            attempts < 1 or attempts > 100
+            or rate_limit < 0.1 or rate_limit > 20
+            or effectiveness_target_percent < 0 or effectiveness_target_percent > 95
+        ):
+            flash("Use attempts 1-100, rate limit 0.1-20, and effectiveness target 0-95 for authorized lab runs.", "danger")
             selected_target = collection_targets.find_one({"_id": ObjectId(target_id), "owner": username}) if ObjectId.is_valid(target_id or "") else None
             selected_safety = safety_form_state_from_settings(build_safety_settings_from_form(request.form, selected_target or {}, username))
             return render_template(
@@ -993,8 +1133,10 @@ def experiment_builder():
                 selected_module_id=module_id or "",
                 selected_attempts=attempts,
                 selected_rate_limit=rate_limit,
+                selected_effectiveness_target=effectiveness_target_percent,
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
+                user_groups=user_groups,
             )
 
         if not target_id or not module_id:
@@ -1011,8 +1153,10 @@ def experiment_builder():
                 selected_module_id=module_id or "",
                 selected_attempts=attempts,
                 selected_rate_limit=rate_limit,
+                selected_effectiveness_target=effectiveness_target_percent,
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
+                user_groups=user_groups,
             )
 
         try:
@@ -1030,11 +1174,13 @@ def experiment_builder():
                 selected_module_id=module_id,
                 selected_attempts=attempts,
                 selected_rate_limit=rate_limit,
+                selected_effectiveness_target=effectiveness_target_percent,
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
+                user_groups=user_groups,
             )
 
-        target_exists = collection_targets.find_one({"_id": target_object_id, "owner": username}, {"_id": 1, "consent_status": 1}) #noah - finds target
+        target_exists = collection_targets.find_one({"_id": target_object_id, "owner": username}) #noah - finds target
         if not target_exists:
             flash("Selected target was not found for your account.", "danger")
             selected_safety = safety_form_state_from_settings(build_safety_settings_from_form(request.form, {}, username))
@@ -1048,8 +1194,10 @@ def experiment_builder():
                 selected_module_id=module_id,
                 selected_attempts=attempts,
                 selected_rate_limit=rate_limit,
+                selected_effectiveness_target=effectiveness_target_percent,
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
+                user_groups=user_groups,
             )
         
         #Noah - checks for approval if not, means not whitelisted
@@ -1076,8 +1224,10 @@ def experiment_builder():
                 selected_module_id=module_id,
                 selected_attempts=attempts,
                 selected_rate_limit=rate_limit,
+                selected_effectiveness_target=effectiveness_target_percent,
                 selected_dry_run=dry_run,
                 selected_safety=selected_safety,
+                user_groups=user_groups,
             )
 
         group_id = request.form.get("group_id")
@@ -1091,6 +1241,7 @@ def experiment_builder():
             "module_id": module_id,
             "attempts": attempts,
             "rate_limit": rate_limit,
+            "effectiveness_target_percent": effectiveness_target_percent,
             "dry_run": dry_run,
             "description": description,
             "notes": notes,
@@ -1174,12 +1325,6 @@ def experiment_builder():
             flash("Experiment created, but execution context was not found.", "warning")
         return redirect(url_for("experimentdetails", experiment_id=str(inserted_id)))
     
-    #Noah: user doc info for tying it to the user based on groups so that it gets name
-    user_doc = collection_users.find_one({"_id": ObjectId(session["user_id"])})
-    user_groups = user_doc.get("groups", []) 
-    for g in user_groups:
-        group_doc = database_name["groups"].find_one({"_id": g["group_id"]})
-        g["name"] = group_doc["name"] 
     return render_template(
         "experimentbuilder.html",
         username=username,
@@ -1190,6 +1335,7 @@ def experiment_builder():
         selected_module_id=selected_module_id,
         selected_attempts=selected_attempts,
         selected_rate_limit=selected_rate_limit,
+        selected_effectiveness_target=selected_effectiveness_target,
         selected_dry_run=selected_dry_run,
         selected_safety=selected_safety,
         #noah: new to get user_groups to builder html

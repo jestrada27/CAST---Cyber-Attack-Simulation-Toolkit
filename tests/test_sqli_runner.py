@@ -203,3 +203,107 @@ def test_sqli_runner_caps_attempts():
                         target={"ip_or_url": "http://127.0.0.1:9"},
                         safety_engine=None)
     assert runner.attempts == 50  # MAX_ATTEMPTS cap
+
+
+# ---- exposed information ---------------------------------------------------
+
+def test_exposed_records_and_hashes_extracted(castrange_url):
+    from Attacks.modules.sqli import SqliRunner
+    url, token = castrange_url
+    _reset_log(url, token)
+
+    target = {"ip_or_url": url, "metadata": {"range_token": token}}
+    runner = SqliRunner(attempts=12, rate_limit=8.0, dry_run=False,
+                        target=target, safety_engine=None)
+    result = runner.run()
+
+    es = result.exposed_summary
+    assert es["records_extracted"] > 0, f"no records extracted; findings={result.findings}"
+    assert es["unique_password_hashes"] >= 4, \
+        f"expected the four seeded MD5 hashes; got {es['sample_hashes']}"
+    # Known seed: admin's password is "admin" -> 21232f297a57a5a743894a0e4a801fc3
+    assert "21232f297a57a5a743894a0e4a801fc3" in es["sample_hashes"]
+    assert es["unique_emails"] >= 1
+    assert any("@castrange.local" in e for e in es["sample_emails"])
+
+
+def test_exposed_data_per_finding(castrange_url):
+    from Attacks.modules.sqli import SqliRunner
+    url, token = castrange_url
+    _reset_log(url, token)
+
+    target = {"ip_or_url": url, "metadata": {"range_token": token}}
+    runner = SqliRunner(attempts=12, rate_limit=8.0, dry_run=False,
+                        target=target, safety_engine=None)
+    result = runner.run()
+
+    union_findings = [f for f in result.findings
+                      if f.category == "union" and f.success]
+    assert union_findings, "expected at least one successful UNION finding"
+    sample = union_findings[0]
+    assert "records" in sample.exposed_data
+    assert sample.exposed_data["records"], "records list should be non-empty"
+
+
+def test_exposed_summary_in_to_dict(castrange_url):
+    from Attacks.modules.sqli import SqliRunner
+    url, token = castrange_url
+    _reset_log(url, token)
+
+    target = {"ip_or_url": url, "metadata": {"range_token": token}}
+    runner = SqliRunner(attempts=8, rate_limit=8.0, dry_run=False,
+                        target=target, safety_engine=None)
+    out = runner.run().to_dict(safety_engine=None)
+
+    assert "exposed_summary" in out
+    assert isinstance(out["exposed_summary"], dict)
+    assert out["exposed_summary"]["records_extracted"] > 0
+    # findings in dict form should also carry exposed_data on success
+    successful = [f for f in out["findings"] if f["success"] and f["category"] == "union"]
+    assert successful and successful[0]["exposed_data"].get("records")
+
+
+def test_auth_bypass_exposes_redirect(castrange_url):
+    from Attacks.modules.sqli import SqliRunner
+    url, token = castrange_url
+    _reset_log(url, token)
+
+    target = {"ip_or_url": f"{url}/login", "metadata": {"range_token": token}}
+    runner = SqliRunner(attempts=4, rate_limit=8.0, dry_run=False,
+                        target=target, safety_engine=None)
+    result = runner.run()
+
+    bypass = [f for f in result.findings
+              if f.category == "auth_bypass" and f.success]
+    assert bypass, f"expected auth_bypass, findings={result.findings}"
+    assert "/dashboard" in bypass[0].exposed_data.get("redirect_to", "")
+    assert result.exposed_summary["auth_bypasses"] >= 1
+
+
+def test_waf_blocks_prevent_exposure(castrange_url):
+    from Attacks.modules.sqli import SqliRunner
+    url, token = castrange_url
+    _reset_log(url, token)
+    _set_defense(url, token, "basic")
+    try:
+        target = {"ip_or_url": url, "metadata": {"range_token": token}}
+        runner = SqliRunner(attempts=12, rate_limit=8.0, dry_run=False,
+                            target=target, safety_engine=None)
+        result = runner.run()
+        # WAF should suppress most leakage at the basic level
+        assert result.exposed_summary["records_extracted"] == 0
+        assert result.exposed_summary["unique_password_hashes"] == 0
+    finally:
+        _set_defense(url, token, "off")
+
+
+def test_guidance_mentions_exposure(castrange_url):
+    from Attacks.modules.sqli import SqliRunner
+    url, token = castrange_url
+    _reset_log(url, token)
+
+    target = {"ip_or_url": url, "metadata": {"range_token": token}}
+    runner = SqliRunner(attempts=10, rate_limit=8.0, dry_run=False,
+                        target=target, safety_engine=None)
+    result = runner.run()
+    assert "Exposed:" in result.guidance, f"guidance was: {result.guidance!r}"

@@ -85,224 +85,253 @@
         {% endif %}
       {% endwith %}
 
-      <section class="grid cards feature-cards">
-        <div class="card feature-card history-card">
-          <div class="feature-icon"><i class="fa-regular fa-folder-open"></i></div>
-          <div class="feature-title">History</div>
-          <div class="feature-text">Every run can be saved and reviewed later</div>
-        </div>
-
-        <div class="card feature-card bruteforce-card">
-          <div class="feature-icon"><i class="fa-solid fa-lock"></i></div>
-          <div class="feature-title">Bruteforce</div>
-          <div class="feature-text">Controlled credential simulation workflow</div>
-        </div>
-
-        <div class="card feature-card metrics-card">
-          <div class="feature-icon"><i class="fa-solid fa-chart-column"></i></div>
-          <div class="feature-title">Metrics</div>
-          <div class="feature-text">Track throughput and detectability together</div>
-        </div>
-
-        <div class="card feature-card dns-card">
-          <div class="feature-icon"><i class="fa-solid fa-globe"></i></div>
-          <div class="feature-title">DNS</div>
-          <div class="feature-text">Safe DNS tunneling simulation and review</div>
-        </div>
-      </section>
-
       <div class="panel builder-panel" style="margin-top:16px;">
         <h2>
           <i class="fa-solid fa-flask" style="margin-right:10px; color: var(--accent);"></i>
           Create Experiment
         </h2>
 
-        <form method="post" class="form-grid">
-          <label class="field">
-            <span>target</span>
-            <select name="target_id" required>
-              <option value="">select target</option>
-              {% for t in targets %}
-                <option value="{{ t._id }}" {% if selected_target_id == (t._id|string) %}selected{% endif %}>{{ t.name }}</option>
-              {% endfor %}
-            </select>
-          </label>
+        <form method="post" id="experimentBuilderForm" class="builder-form">
+          <section class="builder-section">
+            <div class="builder-section-head">
+              <div>
+                <h3>Run Setup</h3>
+                <p class="panel-hint">Pick the target, module, group, and lab-safe run size.</p>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label class="field">
+                <span>Target</span>
+                <select name="target_id" id="targetSelect" required>
+                  <option value="">Select Target</option>
+                  {% for t in targets %}
+                    <option
+                      value="{{ t._id }}"
+                      data-endpoint="{{ t.ip_or_url if t.ip_or_url else 'unknown' }}"
+                      data-environment="{{ t.environment if t.environment else 'lab' }}"
+                      data-consent="{{ t.consent_status if t.consent_status else 'pending' }}"
+                      data-services="{{ (t.allowed_services or [])|join(', ') }}"
+                      data-ports="{{ (t.allowed_ports or [])|join(', ') }}"
+                      {% if selected_target_id == (t._id|string) %}selected{% endif %}
+                    >{{ t.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
 
-          <label class="field">
-            <span>module</span>
-            <select name="module_id" required>
-              <option value="">select module</option>
-              {% for m in modules %}
-                <option value="{{ m.id }}" {% if selected_module_id == m.id %}selected{% endif %}>{{ m.name }}</option>
-              {% endfor %}
-            </select>
-          </label>
+              <label class="field">
+                <span>Module</span>
+                <select name="module_id" id="moduleSelect" required>
+                  <option value="">Select Module</option>
+                  {% for m in modules %}
+                    <option value="{{ m.id }}" {% if selected_module_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
 
-          <label class="field">
-            <span>attempts</span>
-            <input type="number" name="attempts" value="{{ selected_attempts }}" min="1" max="50">
-          </label>
+              <label class="field">
+                <span>Attempts</span>
+                <input type="number" name="attempts" value="{{ selected_attempts }}" min="1" max="100">
+              </label>
 
-          <label class="field">
-            <span>rate_limit</span>
-            <input type="number" name="rate_limit" value="{{ selected_rate_limit }}" step="0.1" min="0.1" max="10">
-          </label>
+              <label class="field">
+                <span>Rate Limit</span>
+                <input type="number" name="rate_limit" value="{{ selected_rate_limit }}" step="0.1" min="0.1" max="20">
+              </label>
 
-          <label class="field">
-            <span>description</span>
-            <input type="text" name="description" placeholder="short description of this experiment">
-          </label>
+              <label class="field">
+                <span>Simulation Effectiveness Target</span>
+                <input type="number" name="effectiveness_target_percent" value="{{ selected_effectiveness_target }}" step="1" min="0" max="95">
+              </label>
 
-          <label class="field">
-            <span>notes</span>
-            <textarea name="notes" rows="3" placeholder="optional notes about this test"></textarea>
-          </label>
+              <label class="field">
+                <span>Group</span>
+                <select name="group_id" required>
+                  <option value="">Select Group</option>
+                  {% for group in user_groups %}
+                    <option value="{{ group.group_id }}">{{ group.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
 
-          <!--Noah: added group for experiment builder for operator control -->
-           <label class="field">
-            <span>Group</span>
-            <select name="group_id" required>
-              <option value="">Select group</option>
-              {% for group in user_groups %}
-              <option value="{{ group.group_id }}">{{ group.name }}</option>
-            {% endfor %}
-            </select>
-          </label>
+              <label class="field checkbox dryrun-row">
+                <span class="dryrun-label">Dry Run</span>
+                <div class="dryrun-control">
+                  <input type="checkbox" name="dry_run" {% if selected_dry_run %}checked{% endif %}>
+                  <span>Dry Run</span>
+                </div>
+              </label>
+            </div>
+            <div class="target-preview" id="targetPreview" hidden>
+              <span id="targetEndpoint"></span>
+              <span id="targetEnvironment"></span>
+              <span id="targetConsent"></span>
+              <span id="targetServices"></span>
+            </div>
+          </section>
 
-          <label class="field checkbox">
-            <input type="checkbox" name="experiment_approved" {% if selected_safety.experiment_approved %}checked{% endif %}>
-            <span>Experiment approved for execution</span>
-          </label>
+          <details class="builder-details">
+            <summary>Notes</summary>
+            <div class="form-grid">
+              <label class="field">
+                <span>Description</span>
+                <input type="text" name="description" placeholder="short description of this experiment">
+              </label>
 
-          <label class="field">
-            <span>approved_users</span>
-            <input type="text" name="approved_users" value="{{ selected_safety.approved_users }}" placeholder="{{ username }}">
-          </label>
+              <label class="field">
+                <span>Notes</span>
+                <textarea name="notes" rows="3" placeholder="optional notes about this test"></textarea>
+              </label>
+            </div>
+          </details>
 
-          <label class="field">
-            <span>allowed_ips</span>
-            <input type="text" name="allowed_ips" value="{{ selected_safety.allowed_ips }}" placeholder="127.0.0.1, 10.0.0.5">
-          </label>
+          <details class="builder-details">
+            <summary>Safety Scope</summary>
+            <div class="form-grid">
+              <label class="field checkbox">
+                <input type="checkbox" name="experiment_approved" {% if selected_safety.experiment_approved %}checked{% endif %}>
+                <span>Experiment approved for execution</span>
+              </label>
 
-          <label class="field">
-            <span>allowed_ports</span>
-            <input type="text" name="allowed_ports" value="{{ selected_safety.allowed_ports }}" placeholder="80, 443, 53">
-          </label>
+              <label class="field">
+                <span>Approved Users</span>
+                <input type="text" name="approved_users" value="{{ selected_safety.approved_users }}" placeholder="{{ username }}">
+              </label>
 
-          <label class="field">
-            <span>allowed_urls</span>
-            <input type="text" name="allowed_urls" value="{{ selected_safety.allowed_urls }}" placeholder="http://127.0.0.1:5001/login">
-          </label>
+              <label class="field">
+                <span>Allowed IPs</span>
+                <input type="text" name="allowed_ips" value="{{ selected_safety.allowed_ips }}" placeholder="127.0.0.1, 10.0.0.5">
+              </label>
 
-          <label class="field">
-            <span>allowed_accounts</span>
-            <input type="text" name="allowed_accounts" value="{{ selected_safety.allowed_accounts }}" placeholder="alice, bob">
-          </label>
+              <label class="field">
+                <span>Allowed Ports</span>
+                <input type="text" name="allowed_ports" value="{{ selected_safety.allowed_ports }}" placeholder="80, 443, 53">
+              </label>
 
-          <label class="field">
-            <span>allowed_services</span>
-            <input type="text" name="allowed_services" value="{{ selected_safety.allowed_services }}" placeholder="auth, http, dns">
-          </label>
+              <label class="field">
+                <span>Allowed URLs</span>
+                <input type="text" name="allowed_urls" value="{{ selected_safety.allowed_urls }}" placeholder="http://127.0.0.1:5001/login">
+              </label>
 
-          <label class="field">
-            <span>max_duration_seconds</span>
-            <input type="number" name="max_duration_seconds" value="{{ selected_safety.max_duration_seconds }}" min="5" max="3600">
-          </label>
+              <label class="field">
+                <span>Allowed Accounts</span>
+                <input type="text" name="allowed_accounts" value="{{ selected_safety.allowed_accounts }}" placeholder="alice, bob">
+              </label>
 
-          <label class="field">
-            <span>scheduled_end</span>
-            <input type="datetime-local" name="scheduled_end" value="{{ selected_safety.scheduled_end }}">
-          </label>
+              <label class="field">
+                <span>Allowed Services</span>
+                <input type="text" name="allowed_services" value="{{ selected_safety.allowed_services }}" placeholder="auth, http, dns">
+              </label>
+            </div>
+          </details>
 
-          <label class="field">
-            <span>requests_per_minute</span>
-            <input type="number" name="requests_per_minute" value="{{ selected_safety.requests_per_minute }}" min="1" max="500">
-          </label>
+          <details class="builder-details">
+            <summary>Execution Limits</summary>
+            <div class="form-grid">
+              <label class="field">
+                <span>Maximum Duration</span>
+                <input type="number" name="max_duration_seconds" value="{{ selected_safety.max_duration_seconds }}" min="5" max="3600">
+              </label>
 
-          <label class="field">
-            <span>login_attempts_per_minute</span>
-            <input type="number" name="login_attempts_per_minute" value="{{ selected_safety.login_attempts_per_minute }}" min="1" max="500">
-          </label>
+              <label class="field">
+                <span>Scheduled End</span>
+                <input type="datetime-local" name="scheduled_end" value="{{ selected_safety.scheduled_end }}">
+              </label>
 
-          <label class="field">
-            <span>payloads_per_minute</span>
-            <input type="number" name="payloads_per_minute" value="{{ selected_safety.payloads_per_minute }}" min="1" max="500">
-          </label>
+              <label class="field">
+                <span>Requests per Minute</span>
+                <input type="number" name="requests_per_minute" value="{{ selected_safety.requests_per_minute }}" min="1" max="500">
+              </label>
 
-          <label class="field">
-            <span>bandwidth_kbps</span>
-            <input type="number" name="bandwidth_kbps" value="{{ selected_safety.bandwidth_kbps }}" step="0.1" min="1" max="5000">
-          </label>
+              <label class="field">
+                <span>Login Attempts per Minute</span>
+                <input type="number" name="login_attempts_per_minute" value="{{ selected_safety.login_attempts_per_minute }}" min="1" max="500">
+              </label>
 
-          <label class="field">
-            <span>packet_volume_per_minute</span>
-            <input type="number" name="packet_volume_per_minute" value="{{ selected_safety.packet_volume_per_minute }}" min="1" max="5000">
-          </label>
+              <label class="field">
+                <span>Payloads per Minute</span>
+                <input type="number" name="payloads_per_minute" value="{{ selected_safety.payloads_per_minute }}" min="1" max="500">
+              </label>
 
-          <label class="field">
-            <span>max_detectability_score</span>
-            <input type="number" name="max_detectability_score" value="{{ selected_safety.max_detectability_score }}" step="0.1" min="1" max="100">
-          </label>
+              <label class="field">
+                <span>Bandwidth Cap</span>
+                <input type="number" name="bandwidth_kbps" value="{{ selected_safety.bandwidth_kbps }}" step="0.1" min="1" max="5000">
+              </label>
 
-          <label class="field">
-            <span>max_scope_violations</span>
-            <input type="number" name="max_scope_violations" value="{{ selected_safety.max_scope_violations }}" min="0" max="25">
-          </label>
+              <label class="field">
+                <span>Packet Volume per Minute</span>
+                <input type="number" name="packet_volume_per_minute" value="{{ selected_safety.packet_volume_per_minute }}" min="1" max="5000">
+              </label>
 
-          <label class="field">
-            <span>max_alerts</span>
-            <input type="number" name="max_alerts" value="{{ selected_safety.max_alerts }}" min="1" max="50">
-          </label>
+              <label class="field">
+                <span>Maximum Detectability Score</span>
+                <input type="number" name="max_detectability_score" value="{{ selected_safety.max_detectability_score }}" step="0.1" min="1" max="100">
+              </label>
 
-          <label class="field">
-            <span>max_unexpected_targets</span>
-            <input type="number" name="max_unexpected_targets" value="{{ selected_safety.max_unexpected_targets }}" min="0" max="10">
-          </label>
+              <label class="field">
+                <span>Maximum Scope Violations</span>
+                <input type="number" name="max_scope_violations" value="{{ selected_safety.max_scope_violations }}" min="0" max="25">
+              </label>
 
-          <label class="field">
-            <span>kill_switch</span>
-            <select name="kill_switch_enabled">
-              <option value="on" {% if selected_safety.kill_switch_enabled %}selected{% endif %}>enabled</option>
-              <option value="off" {% if not selected_safety.kill_switch_enabled %}selected{% endif %}>disabled</option>
-            </select>
-          </label>
+              <label class="field">
+                <span>Maximum Alerts</span>
+                <input type="number" name="max_alerts" value="{{ selected_safety.max_alerts }}" min="1" max="50">
+              </label>
+
+              <label class="field">
+                <span>Maximum Unexpected Targets</span>
+                <input type="number" name="max_unexpected_targets" value="{{ selected_safety.max_unexpected_targets }}" min="0" max="10">
+              </label>
+
+              <label class="field">
+                <span>Kill Switch</span>
+                <select name="kill_switch_enabled">
+              <option value="on" {% if selected_safety.kill_switch_enabled %}selected{% endif %}>Enabled</option>
+              <option value="off" {% if not selected_safety.kill_switch_enabled %}selected{% endif %}>Disabled</option>
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <details class="builder-details">
+            <summary>Module Constraints</summary>
+            <div class="form-grid">
 
           <label class="field bruteforce-only-field">
-            <span>bf_max_attempts_per_account</span>
+            <span>Brute Force Attempts per Account</span>
             <input type="number" name="bf_max_attempts_per_account" value="{{ selected_safety.bf_max_attempts_per_account }}" min="1" max="20">
           </label>
 
           <label class="field xss-only-field">
-            <span>xss_safe_payloads_only</span>
+            <span>XSS Safe Payloads Only</span>
             <select name="xss_safe_payloads_only">
-              <option value="on" {% if selected_safety.xss_safe_payloads_only %}selected{% endif %}>enabled</option>
-              <option value="off" {% if not selected_safety.xss_safe_payloads_only %}selected{% endif %}>disabled</option>
+              <option value="on" {% if selected_safety.xss_safe_payloads_only %}selected{% endif %}>Enabled</option>
+              <option value="off" {% if not selected_safety.xss_safe_payloads_only %}selected{% endif %}>Disabled</option>
             </select>
           </label>
 
           <label class="field xss-only-field">
-            <span>xss_safe_payloads</span>
+            <span>XSS Safe Payloads</span>
             <input type="text" name="xss_safe_payloads" value="{{ selected_safety.xss_safe_payloads }}" placeholder="<script>alert(1)</script>, <svg onload=alert(1)>">
           </label>
 
           <label class="field sqli-only-field">
-            <span>sqli_probe_only</span>
+            <span>SQLi Probe Only</span>
             <select name="sqli_probe_only">
-              <option value="on" {% if selected_safety.sqli_probe_only %}selected{% endif %}>enabled</option>
-              <option value="off" {% if not selected_safety.sqli_probe_only %}selected{% endif %}>disabled</option>
+              <option value="on" {% if selected_safety.sqli_probe_only %}selected{% endif %}>Enabled</option>
+              <option value="off" {% if not selected_safety.sqli_probe_only %}selected{% endif %}>Disabled</option>
             </select>
           </label>
 
           <label class="field replay-only-field">
-            <span>replay_lab_only</span>
+            <span>Replay Lab Only</span>
             <select name="replay_lab_only">
-              <option value="on" {% if selected_safety.replay_lab_only %}selected{% endif %}>enabled</option>
-              <option value="off" {% if not selected_safety.replay_lab_only %}selected{% endif %}>disabled</option>
+              <option value="on" {% if selected_safety.replay_lab_only %}selected{% endif %}>Enabled</option>
+              <option value="off" {% if not selected_safety.replay_lab_only %}selected{% endif %}>Disabled</option>
             </select>
           </label>
 
           <label class="field replay-only-field">
-            <span>replay_max_replays</span>
+            <span>Maximum Replays</span>
             <input type="number" name="replay_max_replays" value="{{ selected_safety.replay_max_replays }}" min="1" max="100">
           </label>
 
@@ -312,32 +341,26 @@
           </label>
 
           <label class="field dns-only-field">
-            <span>dns_lab_only</span>
+            <span>DNS Lab Only</span>
             <select name="dns_lab_only">
-              <option value="on" {% if selected_safety.dns_lab_only %}selected{% endif %}>enabled</option>
-              <option value="off" {% if not selected_safety.dns_lab_only %}selected{% endif %}>disabled</option>
+              <option value="on" {% if selected_safety.dns_lab_only %}selected{% endif %}>Enabled</option>
+              <option value="off" {% if not selected_safety.dns_lab_only %}selected{% endif %}>Disabled</option>
             </select>
           </label>
 
           <label class="field dns-only-field">
-            <span>dns_max_payload_bytes</span>
+            <span>Maximum DNS Payload Bytes</span>
             <input type="number" name="dns_max_payload_bytes" value="{{ selected_safety.dns_max_payload_bytes }}" min="32" max="512">
           </label>
 
           <label class="field dns-only-field">
-            <span>dns_max_queries_per_second</span>
+            <span>Maximum DNS Queries per Second</span>
             <input type="number" name="dns_max_queries_per_second" value="{{ selected_safety.dns_max_queries_per_second }}" step="0.1" min="0.1" max="25">
           </label>
+            </div>
+          </details>
 
           <div class="builder-footer">
-            <label class="field checkbox dryrun-row">
-              <span class="dryrun-label">dry run</span>
-              <div class="dryrun-control">
-                <input type="checkbox" name="dry_run" {% if selected_dry_run %}checked{% endif %}>
-                <span>Dry Run (safe mode)</span>
-              </div>
-            </label>
-
             <div class="actions">
               <a class="btn-secondary" href="{{ url_for('main_dashboard') }}">Cancel</a>
               <button class="btn-primary" type="submit">
@@ -348,41 +371,14 @@
           </div>
         </form>
       </div>
-      <select class="input" name="module_id" id="DEBUGCHOICES" required>
-      <option value="SQL">SQL</option>
-      <option value="DNS">DNS</option>
-      <option value="BruteForce">BruteForce</option>
-      <option value="XSS">XSS</option>
-      <option value="Replay">Replay</option>
-    </select>
-      <button id="DEBUGBUTTON">DEBUGCONFIGATTACK</button>
-      <div id="DEBUGCONTAINER"></div>
+      <div class="loading-overlay" id="attackLoadingOverlay" hidden>
+        <div class="loading-dialog">
+          <div class="loading-spinner" aria-hidden="true"></div>
+          <h2>Preparing experiment</h2>
+          <p>Validating scope, saving the request, and starting the authorized run.</p>
+        </div>
+      </div>
     </main>
   </div>
-  <script>
-    const moduleSelect = document.querySelector('select[name="module_id"]');
-    const moduleFieldGroups = {
-      'brute force': document.querySelectorAll('.bruteforce-only-field'),
-      'xss': document.querySelectorAll('.xss-only-field'),
-      'sqli': document.querySelectorAll('.sqli-only-field'),
-      'replay': document.querySelectorAll('.replay-only-field'),
-      'dns': document.querySelectorAll('.dns-only-field')
-    };
-
-    function toggleModuleFields() {
-      const selectedModule = moduleSelect ? moduleSelect.value : '';
-      Object.entries(moduleFieldGroups).forEach(([moduleId, fields]) => {
-        const showFields = selectedModule === moduleId;
-        fields.forEach((field) => {
-          field.style.display = showFields ? '' : 'none';
-        });
-      });
-    }
-
-    if (moduleSelect) {
-      moduleSelect.addEventListener('change', toggleModuleFields);
-      toggleModuleFields();
-    }
-  </script>
 </body>
 </html>

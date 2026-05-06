@@ -101,27 +101,36 @@ h1{margin:0 0 4px 0; font-size:28px}
   display:flex;
   align-items:flex-end;
   gap:10px;
-  height:160px;
-  padding:10px;
+  height:190px;
+  padding:28px 14px 42px;
   border-radius:14px;
   border:1px solid var(--border);
   background:rgba(255,255,255,.03);
+  overflow-x:auto;
+  overflow-y:visible;
 }
 .barcol{
-  flex:1;
+  flex:1 0 64px;
   height: var(--h);
   min-height:8px;
+  max-width:96px;
   border-radius:12px 12px 8px 8px;
   background:linear-gradient(180deg, rgba(110,168,254,.9), rgba(110,168,254,.25));
   position:relative;
 }
 .barcol span{
   position:absolute;
-  bottom:-22px;
+  top:calc(100% + 8px);
   left:50%;
   transform:translateX(-50%);
   color:var(--muted);
   font-size:12px;
+  line-height:1.15;
+  text-align:center;
+  white-space:normal;
+  width:max-content;
+  max-width:72px;
+  overflow-wrap:normal;
 }
 .panel-hint{color:var(--muted); font-size:12px; margin:10px 2px 0}
 
