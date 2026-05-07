@@ -224,6 +224,9 @@ function GenDNSConfig() {
 
 function GenXSSConfig(){
     //TODO:
+    const div = document.createElement("div");
+    div.textContent = "No additional config needed for xss";
+    return div;
 }
 
 function GenReplayConfig(){
