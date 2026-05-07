@@ -57,7 +57,7 @@ function SelectNewGroup() {
 
 async function IsGroupAdmin(group_id){
     try{
-        const res = await fetch("/groups/is_admin", {
+        const res = await fetch("/groups/is_owner", {
             method: "POST",
             headers: {
             "Content-Type": "application/json",
@@ -113,6 +113,40 @@ async function deleteUserFromGroup(group_id){
     }
 }
 
+async function deleteGroup(group_id){
+
+    try {
+        const res = await fetch("/groups/delete_group", {
+            method: "POST",
+            headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+            body: JSON.stringify({ group_id:group_id }),
+            // IMPORTANT if your frontend is on a different domain/port:
+            // credentials: "include",
+        });
+
+        // Handle not-logged-in (401)
+        if (res.status === 401) {
+            const err = await res.json();
+            console.log("Not logged in:", err.message);
+            // e.g. redirect:
+            // window.location.href = "/login";
+            return;
+        }
+
+        if (!res.ok) {
+            throw new Error(`Request failed: ${res.status}`);
+        }
+
+        const data = await res.json();
+
+    } catch (e) {
+        console.error("Error deleting group", e);
+    }
+}
+
 function DisplayGroupModal(event, groupId, groupButton){
     groupModal.replaceChildren();
     
@@ -123,6 +157,7 @@ function DisplayGroupModal(event, groupId, groupButton){
     
     leaveGroupButton.addEventListener("click", () => {
         groupButton.remove();
+        closeModalFn(groupModalOverlay);
         deleteUserFromGroup(groupId)
     });
 
@@ -138,6 +173,13 @@ function DisplayGroupModal(event, groupId, groupButton){
         const deleteGroupButton = document.createElement("button");
         deleteGroupButton.textContent = "Delete Group";
         groupModal.appendChild(deleteGroupButton);
+
+        deleteGroupButton.addEventListener("click", () =>{
+            closeModalFn(groupModalOverlay);
+            groupButton.remove();
+            deleteGroup(groupId);
+        });
+
         }
         });
     
@@ -153,12 +195,12 @@ function CreateButtonForGroup(groupName, groupId) {
     //This will display the new page for the dashboard
     button.addEventListener("click", () => {
         //TODO: Display the stuff in the dashboard page
-        
+
         IsGroupAdmin(groupId).then(is_admin=>{
             if(is_admin){
-            inviteModalBtn.hidden = false;
+            invitationButton.hidden = true;
         }else{
-            inviteModalBtn.hidden = true;
+            invitationButton.hidden = false;
         }
         });
         loadMembers(groupId);
@@ -641,11 +683,12 @@ groupModalOverlay.addEventListener("click", (e) => {
 });
 
 //Setup the display modal when member button clicked logic
+/*
 memberContainer.addEventListener("click", (e) => {
     const clicked = e.target.closest("button");
     if (!clicked) return;
     DisplayModal(memberModalOverlay, memberModal, true, e);
-});
+});*/
 
 //Load the user groups when we first load the page
 loadUserGroups();

@@ -1277,3 +1277,7 @@ tr:hover td{
     margin:12px;
   }
 }
+
+option {
+  color: black;
+}

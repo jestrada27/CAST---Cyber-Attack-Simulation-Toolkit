@@ -309,16 +309,16 @@ def isUserAdmin(user_id, group_id):
     
     return False
 
-def deleteGroup(group_id, owner):
-    #make sure that the person trying to delete the server is actually the owner.
-    admin_check = collection_users.find_one({"_id":ObjectId(owner),"groups.group_id": ObjectId(group_id),"groups.role": "owner"})
-    print("TODO, we still have to update code so that the creator of the group's role is 'owner'")
-    if not admin_check:
-        return False
-    
-    #Delete group and
+def deleteGroup(group_id):
     groups_collection.find_one_and_delete({"_id":ObjectId(group_id)})
-    collection_users.update_many({"$pull": {"groups": {"group_id": group_id}, "group_keys": {"group_id": group_id}}})
+    collection_users.update_many(
+    {"groups.group_id": group_id},
+    {
+        "$pull": {
+            "groups": {"group_id": group_id},
+            "group_keys": {"group_id": group_id}
+        }
+    })
 
     #TODO: Delete all activity and reports associated with this group
     #TODO: imp web sockets that live update to users in the group
