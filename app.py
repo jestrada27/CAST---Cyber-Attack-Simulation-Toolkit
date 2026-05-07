@@ -901,9 +901,10 @@ def run_experiment_now(experiment, target, user):
 
         if module_id == "xss":
             results = run_xss_experiment(
-                experiment,
-                collection_targets,
+                experiment=experiment,
+                collection_targets=collection_targets,
                 effectiveness_target_percent=effectiveness_target_percent,
+                safety_engine=safety_engine,
             )
             results = attach_information_grab(module_id, target, results)
 
