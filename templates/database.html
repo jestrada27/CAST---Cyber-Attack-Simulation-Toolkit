@@ -462,7 +462,9 @@
     color: var(--text);
 }
       
-
+  .left-sidebar {
+      height: auto;
+    }
        
    </style>
 </head>
@@ -472,16 +474,18 @@
 
    <div class="layout">
        <!-- Sidebar -->
-       <aside class="sidebar">
-           <div class="brand">CAST</div>
-           <nav class="nav">
-               <a class="nav-item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
-               <a class="nav-item" href="#">Experiments</a>
-               <a class="nav-item" href="#">Targets</a>
-               <a class="nav-item active" href="{{ url_for('reports.database_page') }}">Reports</a>
-               <a class="nav-item" href="{{ url_for('logout') }}">Logout</a>
-           </nav>
-       </aside>
+       <aside class="left-sidebar">
+      <section class="section">
+        <h3>Home</h3>
+        <div class="button-group">
+          <a class="item" href="{{ url_for('main_dashboard') }}">Dashboard</a>
+          <a class="item is-selected" href="{{ url_for('targets') }}">Targets</a>
+          <a class="item" href="{{ url_for('experiment_builder') }}">New Experiment</a>
+          <a class="item" href="{{ url_for('experiment_history') }}">Experiment History</a>
+          <a class="item" href="{{ url_for('profile') }}">Profile</a>
+        </div>
+      </section>
+    </aside>
 
 
        <!-- Main Content -->
@@ -522,11 +526,11 @@
         <div class="filters_dropdowns">
            <select id="attack_type" name="attack_type">
                 <option value="All">Attacks</option>
-                <option value="Brute Force">Brute Force</option>
-                <option value="SQL Injection">SQL Injection</option>
-                <option value="DNS">DNS Tunneling</option>
+                <option value="brute force">Brute Force</option>
+                <option value="sqli">SQL Injection</option>
+                <option value="dns">DNS Tunneling</option>
                 <option value="XSS">XSS</option>
-                <option value="Replay">Replay</option>
+                <option value="replay">Replay</option>
            </select>
 
             <select id="status" name="status">
@@ -534,6 +538,8 @@
                 <option value="Stored to Local">Stored to Local</option>
                 <option value="In Progress">In Progress</option>
                 <option value="Completed">Completed</option>
+                <option value="Dry-Run Complete">Dry Run Complete</otpion>
+                <option value="Safety Blocked">Safety Blocked</option>
                 <option value="Failed">Failed</option>
            </select>
 
