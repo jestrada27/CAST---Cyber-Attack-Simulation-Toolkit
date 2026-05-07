@@ -208,6 +208,27 @@
           </div>
         {% endif %}
 
+        {% if exp.module_id == "replay" and exp.results and exp.results.replay_summary %}
+          {% set replay = exp.results.replay_summary %}
+          <div style="margin-top:16px;">
+            <h2 style="margin:0 0 10px 0; font-size:16px;">Replay traffic result</h2>
+            <p><b>Endpoint:</b> <span style="font-family:monospace; font-size:12px;">{{ replay.endpoint }}</span></p>
+            <p><b>Initial Request Accepted:</b> {{ "yes" if replay.initial_request_accepted else "no" if replay.initial_request_accepted is not none else "dry run" }}</p>
+            <p><b>Replay Attempts:</b> {{ replay.replay_attempts }}</p>
+            <p><b>Accepted Replays:</b> {{ replay.accepted_replays }}</p>
+            <p><b>Rejected Replays:</b> {{ replay.rejected_replays }}</p>
+            <p><b>Vulnerable:</b> {{ "yes" if replay.vulnerable else "no" if replay.vulnerable is not none else "dry run only" }}</p>
+            <p><b>Nonce:</b> <span style="font-family:monospace; font-size:12px;">{{ replay.nonce }}</span></p>
+            {% if exp.results.target_metrics %}
+              <p><b>Castrange Metrics:</b>
+                {{ exp.results.target_metrics.triggered }} triggered,
+                {{ exp.results.target_metrics.detected }} detected,
+                {{ exp.results.target_metrics.success_rate_pct }}% success
+              </p>
+            {% endif %}
+          </div>
+        {% endif %}
+
         {% if exp.results and exp.results.information_grab %}
           {% set ig = exp.results.information_grab %}
           <div style="margin-top:16px;">

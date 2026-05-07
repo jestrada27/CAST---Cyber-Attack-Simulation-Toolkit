@@ -1,6 +1,10 @@
 import re
 import time
+import hmac
+import json
+import uuid
 import random
+import hashlib
 import sqlite3
 import threading
 from datetime import datetime, UTC
@@ -22,6 +26,13 @@ BF_MAX_ATTEMPTS = 10
 
 _dns_log = []
 _dns_exfil_bytes = 0
+
+REPLAY_SHARED_SECRET = b"super-secret-key"
+REPLAY_CLOCK_SKEW_SECONDS = 30
+_replay_lock = threading.Lock()
+_replay_seen_nonces = set()
+_replay_nonce_counts = defaultdict(int)
+_replay_events = []
 
 SQLI_PATTERNS = re.compile(
     r"('|\"|\-\-|;|/\*|\*/|xp_|union\s+select|or\s+1\s*=\s*1|"
@@ -162,6 +173,53 @@ def analyze_dns_hostname(hostname: str) -> dict:
         "entropy_approx": round(entropy_approx, 3),
         "labels": hostname.split(".") if hostname else []
     }
+
+
+def sign_replay_message(message: str, nonce: str, timestamp: int) -> str:
+    payload = json.dumps(
+        {"message": message, "nonce": nonce, "timestamp": int(timestamp)},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hmac.new(REPLAY_SHARED_SECRET, payload, hashlib.sha256).hexdigest()
+
+
+def _truthy(value) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _replay_response(status_code, accepted, message, nonce, timestamp, replay_seen,
+                     protected_mode, signature_valid=True, detail=None):
+    vulnerability = bool(accepted and replay_seen and not protected_mode)
+    body = {
+        "connected": True,
+        "accepted": accepted,
+        "attack_detected": bool(replay_seen),
+        "attack_type": "Replay",
+        "technique": "signed_request_reuse",
+        "payload_received": message,
+        "vulnerability": vulnerability,
+        "detail": detail or (
+            "Replay accepted by an endpoint without nonce protection."
+            if vulnerability
+            else "Replay rejected by nonce protection."
+            if replay_seen and protected_mode
+            else "Signed request accepted."
+            if accepted
+            else "Signed request rejected."
+        ),
+        "server_behavior": {
+            "nonce": nonce,
+            "timestamp": timestamp,
+            "replay_seen": bool(replay_seen),
+            "protected_mode": bool(protected_mode),
+            "signature_valid": bool(signature_valid),
+            "accepted": bool(accepted),
+            "nonce_request_count": _replay_nonce_counts.get(nonce, 0),
+            "events_logged": len(_replay_events),
+        },
+    }
+    return jsonify(body), status_code
 
 
 # ---------------------------------------------------------------------------
@@ -626,12 +684,149 @@ def dns_status():
     })
 
 
+@app.route("/replay/verify", methods=["GET", "POST"])
+def replay_verify():
+    """
+    Lab-only replay target. A client sends a signed request once and then
+    resends the exact same nonce/signature tuple. By default this endpoint is
+    intentionally vulnerable so CAST can prove that a replay was accepted.
+    Add ?protected=true to demonstrate nonce-based replay rejection.
+    """
+    body = request.get_json(silent=True) if request.is_json else None
+    data = body or request.values
+
+    message = str(data.get("message", ""))
+    nonce = str(data.get("nonce", ""))
+    signature = str(data.get("signature", ""))
+    protected_mode = _truthy(data.get("protected") or request.args.get("protected"))
+
+    try:
+        timestamp = int(data.get("timestamp", ""))
+    except (TypeError, ValueError):
+        timestamp = 0
+
+    missing = [
+        name for name, value in {
+            "message": message,
+            "nonce": nonce,
+            "timestamp": timestamp,
+            "signature": signature,
+        }.items()
+        if not value
+    ]
+    if missing:
+        return _replay_response(
+            400,
+            False,
+            message,
+            nonce,
+            timestamp,
+            False,
+            protected_mode,
+            signature_valid=False,
+            detail=f"Missing replay field(s): {', '.join(missing)}.",
+        )
+
+    now = int(time.time())
+    if abs(now - timestamp) > REPLAY_CLOCK_SKEW_SECONDS:
+        return _replay_response(
+            400,
+            False,
+            message,
+            nonce,
+            timestamp,
+            False,
+            protected_mode,
+            signature_valid=False,
+            detail="Timestamp outside the allowed replay lab window.",
+        )
+
+    expected_signature = sign_replay_message(message, nonce, timestamp)
+    signature_valid = hmac.compare_digest(signature, expected_signature)
+    if not signature_valid:
+        return _replay_response(
+            401,
+            False,
+            message,
+            nonce,
+            timestamp,
+            False,
+            protected_mode,
+            signature_valid=False,
+            detail="Invalid HMAC signature.",
+        )
+
+    with _replay_lock:
+        replay_seen = nonce in _replay_seen_nonces
+        _replay_nonce_counts[nonce] += 1
+
+        if protected_mode and replay_seen:
+            _replay_events.append({
+                "id": str(uuid.uuid4()),
+                "message": message,
+                "nonce": nonce,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "accepted": False,
+                "replay_seen": True,
+                "protected_mode": True,
+            })
+            return _replay_response(
+                409,
+                False,
+                message,
+                nonce,
+                timestamp,
+                True,
+                True,
+                detail="Replay detected and rejected because nonce protection is enabled.",
+            )
+
+        _replay_seen_nonces.add(nonce)
+        _replay_events.append({
+            "id": str(uuid.uuid4()),
+            "message": message,
+            "nonce": nonce,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "accepted": True,
+            "replay_seen": bool(replay_seen),
+            "protected_mode": bool(protected_mode),
+        })
+
+        return _replay_response(
+            200,
+            True,
+            message,
+            nonce,
+            timestamp,
+            replay_seen,
+            protected_mode,
+        )
+
+
+@app.route("/replay/status", methods=["GET"])
+def replay_status():
+    with _replay_lock:
+        recent_events = list(_replay_events[-10:])
+        reused_nonces = sum(1 for count in _replay_nonce_counts.values() if count > 1)
+    return jsonify({
+        "connected": True,
+        "total_events": len(_replay_events),
+        "unique_nonces": len(_replay_seen_nonces),
+        "reused_nonces": reused_nonces,
+        "recent_events": recent_events,
+    })
+
+
 @app.route("/reset", methods=["POST"])
 def reset_state():
     global _dns_exfil_bytes, _shared_conn
     _login_attempts.clear()
     _dns_log.clear()
     _dns_exfil_bytes = 0
+    with _replay_lock:
+        _replay_seen_nonces.clear()
+        _replay_nonce_counts.clear()
+        _replay_events.clear()
     _shared_conn = None
     get_db()
 

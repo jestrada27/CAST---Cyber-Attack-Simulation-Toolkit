@@ -2,6 +2,7 @@ import pytest
 
 from castrange import config
 from castrange.app import create_app
+from Attacks.modules.replay import make_replay_packet
 
 
 @pytest.fixture
@@ -109,6 +110,42 @@ def test_waf_off_passes_through(client):
     config.state.update(level="easy", defense_level="off")
     r = client.get("/search?q=' UNION SELECT 1,2,3 -- ")
     assert r.status_code == 200
+
+
+# ---- Replay ----------------------------------------------------------------
+
+def test_replay_duplicate_accepted_and_counted(client):
+    packet = make_replay_packet("cast-lab-transfer=10")
+    first = client.get("/replay/verify", query_string=packet)
+    replay = client.get("/replay/verify", query_string=packet)
+
+    assert first.status_code == 200
+    assert first.get_json()["accepted"] is True
+
+    body = replay.get_json()
+    assert replay.status_code == 200
+    assert body["accepted"] is True
+    assert body["attack_detected"] is True
+    assert body["vulnerability"] is True
+
+    metrics = _metrics(client)
+    assert metrics["triggered"] >= 1
+    assert metrics["success_rate_pct"] > 0
+
+
+def test_replay_duplicate_rejected_when_protected(client):
+    packet = make_replay_packet("cast-lab-transfer=10")
+    packet["protected"] = "true"
+    first = client.get("/replay/verify", query_string=packet)
+    replay = client.get("/replay/verify", query_string=packet)
+
+    assert first.status_code == 200
+    assert replay.status_code == 409
+    assert replay.get_json()["vulnerability"] is False
+
+    metrics = _metrics(client)
+    assert metrics["triggered"] >= 1
+    assert metrics["detected"] >= 1
 
 
 # ---- /_range/* control plane ------------------------------------------------

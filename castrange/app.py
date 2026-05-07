@@ -90,10 +90,12 @@ def create_app():
         return response
 
     from castrange.blueprints.auth import bp as auth_bp
+    from castrange.blueprints.replay import bp as replay_bp
     from castrange.blueprints.search import bp as search_bp
     from castrange.blueprints.range_api import bp as range_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(replay_bp)
     app.register_blueprint(search_bp)
     app.register_blueprint(range_bp, url_prefix="/_range")
 

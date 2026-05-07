@@ -2,6 +2,7 @@ from functools import wraps
 
 from flask import Blueprint, abort, jsonify, request
 
+from castrange.blueprints.replay import clear_replay_state
 from castrange.config import state
 from castrange.db import get_conn, init_db
 
@@ -27,6 +28,7 @@ def health():
 @_require_token
 def reset():
     init_db()
+    clear_replay_state()
     return jsonify({"status": "reset"})
 
 

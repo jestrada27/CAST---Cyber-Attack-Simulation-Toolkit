@@ -777,6 +777,11 @@ def build_information_grab(module_id, target, results):
         risk_notes.append("authentication bypass observed")
     if exposed_summary.get("sql_errors_leaked"):
         risk_notes.append("verbose SQL errors leaked")
+    replay_summary = results.get("replay_summary") or {}
+    if replay_summary.get("vulnerable"):
+        risk_notes.append("replay accepted")
+    elif replay_summary.get("replay_attempts"):
+        risk_notes.append("replay rejected or detected")
     if safety_report.get("scope_violations"):
         risk_notes.append("scope violations recorded")
     if safety_report.get("kill_switch_engaged"):
@@ -928,10 +933,15 @@ def run_experiment_now(experiment, target, user):
             )
             results = attach_information_grab(module_id, target, results)
             status = derive_run_status(dry_run, results.get("safety_summary"))
+            message = (
+                "Replay live traffic test finished."
+                if module_id == "replay" and not dry_run
+                else f"{module_id.upper()} simulation finished."
+            )
             return {
                 "status": status,
                 "results": results,
-                "message": f"{module_id.upper()} simulation finished.",
+                "message": message,
                 "category": status_flash_category(status),
             }
     except Exception as error:

