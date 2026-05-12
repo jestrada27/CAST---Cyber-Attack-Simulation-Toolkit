@@ -169,7 +169,7 @@ function GenSQLConfig() {
 
     <input class="input" type="text" name="inputfields" placeholder="Data fields">
 
-    <select class="input" name="module_id" required>
+    <select class="input" name="module_id">
       <option value="">Method</option>
       <option value="POST">POST</option>
       <option value="GET">GET</option>
