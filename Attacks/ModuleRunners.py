@@ -506,13 +506,15 @@ def run_generic_module_simulation(module_id, attempts, rate_limit, dry_run=True,
     }
 
 #Noah: added module runner for run xss attack
-def run_xss_experiment(experiment, collection_targets, effectiveness_target_percent=70.0):
+def run_xss_experiment(experiment, collection_targets, safety_engine=None, effectiveness_target_percent=70.0):
     
-    print("XSS ATTACK FUNCTION LOADED")
+    # print("XSS ATTACK FUNCTION LOADED")
     #from xss_attack.xss_logic import import xss_attack
     from Attacks.XSSInjectAttack import xss_attack
 
     started_at = datetime.now(UTC)
+    status_counts = {}
+    action_events = []
 
     target_doc = collection_targets.find_one({"_id": experiment.get("target_id")})
     if not target_doc:
@@ -534,6 +536,47 @@ def run_xss_experiment(experiment, collection_targets, effectiveness_target_perc
         "payloads": experiment.get("xss_payloads", [])
     }
 
+
+    metadata = {
+        "target_url": target["url"],
+        "target_ip": parse_target_host(target["url"]),
+        "port": _extract_port(target["url"], 80),
+        "service": "http",
+        "method": target["method"],
+        "payload_count": len(xss_config["payloads"]),
+    }   
+    decision = safety_engine.evaluate_action("payload", metadata) if safety_engine else {"decision": "allowed"}
+    verdict = _handle_safety_decision(decision, action_events, status_counts)
+
+    if verdict == "blocked":
+        completed_at = datetime.now(UTC)
+        return {
+            "mode": "blocked",
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "sample_count": 0,
+            "success_count": 0,
+            "success_rate_percent": 0.0,
+            "guidance": "XSS execution blocked by safety engine.",
+            "status_counts": status_counts,
+            "action_events": action_events,
+            **_build_safety_fields(safety_engine),
+        }
+    if verdict == "terminated":
+        completed_at = datetime.now(UTC)
+        return {
+            "mode": "terminated",
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "sample_count": 0,
+            "success_count": 0,
+            "success_rate_percent": 0.0,
+            "guidance": "XSS execution terminated by safety engine.",
+            "status_counts": status_counts,
+            "action_events": action_events,
+            **_build_safety_fields(safety_engine),
+        }
+
     #does the attack and then returns everything
     result = xss_attack(target, xss_config)
 
@@ -544,6 +587,25 @@ def run_xss_experiment(experiment, collection_targets, effectiveness_target_perc
     success_count = 0 if dry_run else int(math.ceil(sample_count * (effectiveness_target / 100.0)))
     success_rate = 0.0 if dry_run or not sample_count else round((success_count / sample_count) * 100.0, 2)
 
+    avg_throughput = round((xss_config["rate_limit"] * 2.2) + random.uniform(0.05, 0.5), 3)
+    avg_detectability = round(_bounded((xss_config["rate_limit"] * 18) + random.uniform(5, 20), 1, 100), 2) 
+    monitor = safety_engine.monitor_activity(
+        {
+            "detectability_score": avg_detectability,
+            "bandwidth_kbps": avg_throughput,
+            "packet_count": sample_count,
+            "unexpected_targets": 0,
+        }
+    ) if safety_engine else {"decision": "allowed"}
+
+    monitor_verdict = _handle_safety_decision(monitor, action_events, status_counts)
+    if monitor_verdict == "terminated":
+        guidance = "XSS execution terminated."
+    elif monitor_verdict == "throttled":
+        guidance = "XSS execution throttled."
+    else:
+        guidance = "XSS attack completed."
+
     #returns relevant information for the attack
     return {
         "mode": "dry_run" if dry_run else "active",
@@ -553,6 +615,10 @@ def run_xss_experiment(experiment, collection_targets, effectiveness_target_perc
         "success_count": success_count,
         "success_rate_percent": success_rate,
         "simulation_effectiveness_target_percent": effectiveness_target,
+        "avg_throughput_kbps": avg_throughput,
+        "avg_detectability_score": avg_detectability,
+        "risk_band": _risk_band(avg_detectability),
+        "guidance": guidance,
         "attack_type": "XSS",
         "target_url": target["url"],
         "attempts": result.get("attempts"),
@@ -562,6 +628,9 @@ def run_xss_experiment(experiment, collection_targets, effectiveness_target_perc
         "attack_xss_log": result.get("xss_log"),
         "attack_xss_config": xss_config,
         "experiment_details": result.get("experiment_details"),
+        "status_counts": status_counts,
+        "action_events": action_events,
+        **_build_safety_fields(safety_engine),
 
         # "details": result
      }
